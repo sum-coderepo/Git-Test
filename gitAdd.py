@@ -26,7 +26,7 @@ def addDir (path):
 def gitAdd (p):
     absolutePath = pathlib.Path(os.path.abspath(p))
     if absolutePath.is_file():
-        stagingArea[absolutePath] = shaOf (absolutePath)
+        stagingArea[absolutePath] = None
     elif absolutePath.is_dir():
         addDir (absolutePath)
 
