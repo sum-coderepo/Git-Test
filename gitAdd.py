@@ -5,9 +5,14 @@ import shutil    #for copy()
 import time      #for time()
 
 trackingArea = {}   #for now
+untrackedFiles = {} #for now
 index = {}          #for now
 commitHead = None   #for now
 treeOfCommits = {}  #for now
+
+#at the time of git init, make a set called untrackedFiles
+#add all files in working directory in this set
+#while adding files to trackingArea at the time of git add, strike them out from this set
 
 def shaOf (filename):
     sha256_hash = hashlib.sha256()
@@ -24,12 +29,24 @@ def addDir (path):
         elif p.is_dir():
             addDir (p)
 
+def addDirToUntrackedFiles (path):
+    absolutePath = pathlib.Path(os.path.abspath(path))
+    for p in pathlib.Path(absolutePath).iterdir():
+        if p.is_file():
+            untrackedFiles.add(p)
+        elif p.is_dir():
+            addDirToUntrackedFiles (p)
+
 def gitAdd (p):
-    absolutePath = pathlib.Path(os.path.abspath(p))
-    if absolutePath.is_file():
-        trackingArea[absolutePath] = None
-    elif absolutePath.is_dir():
-        addDir (absolutePath)
+    addDirToUntrackedFiles(".")
+    #split p
+    #for element in p
+        absolutePath = pathlib.Path(os.path.abspath(p))
+        if absolutePath.is_file():
+            trackingArea[absolutePath] = None
+        elif absolutePath.is_dir():
+            addDir (absolutePath)
+
 
 #gitAdd(".")
 gitAdd("C:\\Users\\mmdwi\\OneDrive\\Desktop\\Gargi Documents")
@@ -57,7 +74,7 @@ def gitCommit ():
         index[curr_commit_id][fileName] = shaOf (fileName)
         if ((trackingArea[fileName] == None) or (index[curr_commit_id][fileName] != trackingArea[fileName])):
             trackingArea[fileName] = index[curr_commit_id][fileName]
-            getExtension (fileName) #add new file to repo
+            extension = getExtension (fileName) #add new file to repo
             dest = gitRepoPath + index[curr_commit_id][fileName] + extension
             shutil.copy(fileName, dest)
             
