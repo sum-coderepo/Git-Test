@@ -14,74 +14,59 @@ from colorama import Fore
 class GitRepository(object):
     """A git repository"""
 
-    #worktree = None
-    #gitdir = None
-    #logfile = None
-    #index = None
-    #trackingArea = {}
-    #untrackedFiles = set()
-    #modifiedFiles = set()
-    #trackedFiles = set()
-    #index = {}
-    #commitHead = None
-    #treeOfCommits = {}
-
     def __init__(self, path, force=False):
         self.worktree = path
         self.gitdir = os.path.join(path, ".git")
         self.logfile = os.path.join(self.gitdir, ".log")
+        self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
+        self.UntrackedFilePath = os.path.join(self.gitdir, "UntrackedFile.txt")
         self.trackedFiles = set()
         self.trackingArea = {}
         self.modifiedFiles = set()
+        self.indexFile = os.path.join(self.gitdir, ".index")
         self.index = {}
         self.commitHead = None
-        self.treeOfCommits = {}
+        self.untrackedFiles = set()
         self.worktree = None
         self.treeOfCommits = {}
 
 
-
-
-    @classmethod
-    def shaOf(filename, self):
+    def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
         with open(filename, "rb") as f:
             for byte_block in iter(lambda: f.read(4096), b""):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
-    @classmethod
-    def addDir(path, self):
+    def addDir(self, path):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
                 self.trackingArea[p] = self.shaOf(p)
                 self.trackedFiles.add(p)
                 self.untrackedFiles.remove(p)
-            elif p.is_dir():
+            elif ((p.is_dir()) & (not p.match("*/.git"))):
                 self.addDir(p)
 
 
-
-    @classmethod
-    def addDirToUntrackedFiles(path, self):
+    def addDirToUntrackedFiles(self, path):
         absolutePath = pathlib.Path(os.path.abspath(path))
         for p in pathlib.Path(absolutePath).iterdir():
-            if p.is_file():
+            if ((p.is_file()) & ( p not in self.trackedFiles)):
                     self.untrackedFiles.add(p)
-            elif p.is_dir():
+            elif ((p.is_dir()) & (not p.match("*/.git"))):
                 self.addDirToUntrackedFiles(p)
 
-    @classmethod
-    def gitAdd(p, self):
+    def gitAdd(self, p ):
+        path = p[2]
         self.addDirToUntrackedFiles(".")
-        for element in p:
-            absolutePath = pathlib.Path(os.path.abspath(element))
-            if absolutePath.is_file():
-                self.trackingArea[absolutePath] = self.shaOf(element)
-                self.trackedFiles.add(absolutePath)
-                self.untrackedFiles.remove(absolutePath)
-            elif absolutePath.is_dir():
-                self.addDir(absolutePath)
+
+        absolutePath = pathlib.Path(os.path.abspath(path))
+        if absolutePath.is_file():
+            self.trackingArea[absolutePath] = self.shaOf(path)
+            self.trackedFiles.add(absolutePath)
+            self.untrackedFiles.remove(absolutePath)
+        elif absolutePath.is_dir():
+            self.addDir(absolutePath)
 
 
     def gitStatus(self):
@@ -103,7 +88,7 @@ class GitRepository(object):
             counter = counter+1
 
         path1 = pathlib.Path(os.path.abspath(
-            "/Users/ashishchauhan/Desktop/Code_it/AOS/Project/demo.txt"))
+            "C:\\Users\\sumeet\\IdeaProjects\\VersionControlAOS\\GitVersion\\Test.py"))
         self.trackingArea[path1] = "dddas"
 
         for i in self.trackingArea:
@@ -132,22 +117,20 @@ class GitRepository(object):
         # handle no extension
         return extension
 
-    @classmethod
     def ExecInit(self, cmd):
         if not os.path.exists(self.gitdir):
             os.mkdir(self.gitdir)
         if not os.path.exists(self.logfile):
             open(self.logfile, 'w').close()
-            
+        if not os.path.exists(self.trackedFilePath):
+            open(self.trackedFilePath, 'w').close()
+        if not os.path.exists(self.UntrackedFilePath):
+            open(self.UntrackedFilePath, 'w').close()
+        if not os.path.exists(self.UntrackedFilePath):
+            open(self.UntrackedFilePath, 'w').close()
+        if not os.path.exists(self.indexFile):
+            open(self.indexFile, 'w').close()
 
-    def addDir1(path, self):
-        for p in pathlib.Path(path).iterdir():
-            if p.is_file() and p not in self.trackingArea:
-                self.trackingArea[p] = self.shaOf(p)
-                self.trackedFiles.add(p)
-                self.untrackedFiles.remove(p)
-            elif p.is_dir():
-                self.addDir(p)
 
 
 def main():
@@ -157,18 +140,19 @@ def main():
 
     Gitobj = GitRepository(os.getcwd())
 
-    Gitobj.gitStatus()
-
 
     while(True):
         if len(string) > 0:
             print(string)
             print(Gitobj.gitdir)
-            print(Gitobj.worktree)
 
             command = string.split(' ')
             if command[1] == 'init':
                 Gitobj.ExecInit(command)
+            elif command[1] == 'add':
+                Gitobj.gitAdd(command)
+            elif command[1] == 'status':
+                Gitobj.gitStatus()
 
             string = str(input())
 
