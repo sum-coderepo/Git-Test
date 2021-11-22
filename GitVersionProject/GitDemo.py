@@ -18,6 +18,7 @@ class GitRepository(object):
         self.worktree = path
         self.gitdir = os.path.join(path, ".git")
         self.logfile = os.path.join(self.gitdir, ".log")
+        self.gitRepoPath = os.path.join(self.gitdir, "Repository")
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
         self.UntrackedFilePath = os.path.join(self.gitdir, "UntrackedFile.txt")
         self.trackedFiles = set()
@@ -112,9 +113,8 @@ class GitRepository(object):
 
 
     def getExtension( self, fileName):
-        pos = fileName.rfind(".")
-        extension = fileName[pos:]
-        # handle no extension
+        pos = str(fileName).rfind(".")
+        extension = str(fileName)[pos:]
         return extension
 
     def ExecInit(self, cmd):
@@ -130,6 +130,26 @@ class GitRepository(object):
             open(self.UntrackedFilePath, 'w').close()
         if not os.path.exists(self.indexFile):
             open(self.indexFile, 'w').close()
+        if not os.path.exists(self.gitRepoPath):
+            os.mkdir(self.gitRepoPath)
+
+
+    def ExecCommit(self):
+        if len(self.index) == 0:
+            self.commitHead = None
+        curr_commit_id = self.getCommitId()
+        self.treeOfCommits[curr_commit_id] = self.commitHead # Parent Commit
+        self.index[curr_commit_id] = {}
+        for fileName in self.trackingArea:
+            self.index[curr_commit_id][fileName] = self.shaOf(fileName)
+            if (self.trackingArea[fileName] is None) or (self.index.get(self.treeOfCommits.get(curr_commit_id , {}), {}).get('fileName') != self.trackingArea[fileName]):
+                self.trackingArea[fileName] = self.index[curr_commit_id][fileName]
+                extension = self.getExtension(fileName)
+                dest = self.gitRepoPath + "\\" + self.index[curr_commit_id][fileName] + extension
+                shutil.copy(fileName, dest)
+
+
+
 
 
 
@@ -153,6 +173,8 @@ def main():
                 Gitobj.gitAdd(command)
             elif command[1] == 'status':
                 Gitobj.gitStatus()
+            elif command[1] == 'commit':
+                Gitobj.ExecCommit()
 
             string = str(input())
 
