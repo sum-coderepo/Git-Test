@@ -88,10 +88,6 @@ class GitRepository(object):
             print(str(counter+1) + "-> " + Fore.RED + path + Fore.WHITE)
             counter = counter+1
 
-        path1 = pathlib.Path(os.path.abspath(
-            "C:\\Users\\sumeet\\IdeaProjects\\VersionControlAOS\\GitVersion\\Test.py"))
-        self.trackingArea[path1] = "dddas"
-
         for i in self.trackingArea:
             if self.trackingArea[i] != self.shaOf(i):
                 self.modifiedFiles.add(i)
@@ -126,8 +122,6 @@ class GitRepository(object):
             open(self.trackedFilePath, 'w').close()
         if not os.path.exists(self.UntrackedFilePath):
             open(self.UntrackedFilePath, 'w').close()
-        if not os.path.exists(self.UntrackedFilePath):
-            open(self.UntrackedFilePath, 'w').close()
         if not os.path.exists(self.indexFile):
             open(self.indexFile, 'w').close()
         if not os.path.exists(self.gitRepoPath):
@@ -147,6 +141,7 @@ class GitRepository(object):
                 extension = self.getExtension(fileName)
                 dest = self.gitRepoPath + "\\" + self.index[curr_commit_id][fileName] + extension
                 shutil.copy(fileName, dest)
+        self.commitHead = curr_commit_id
 
 
 
