@@ -1,6 +1,3 @@
-import argparse
-import collections
-import configparser
 import sys
 from typing import List
 import os  # for is_file(), is_dir(), abspath()
@@ -139,6 +136,9 @@ class GitRepository(object):
         return extension
 
     def ExecInit(self, cmd):
+        if os.path.exists(self.gitdir):
+            print("Git already initialised")
+            sys.exit(0)
         if not os.path.exists(self.gitdir):
             os.mkdir(self.gitdir)
         if not os.path.exists(self.logfile):
@@ -173,33 +173,27 @@ class GitRepository(object):
 
 
 def main():
-    print("Enter Input:")
-    string = str(input())
     # print(os.getcwd())
 
     Gitobj = GitRepository(os.getcwd())
+    if os.path.exists(Gitobj.gitdir):
+        Gitobj.readFromTxt()
 
-    while(True):
-        if len(string) > 0:
-            # print(string)
-            # print(Gitobj.gitdir)
+    command = sys.argv
+    if len(command) > 0:
+        if command[1] == 'init':
+            Gitobj.ExecInit(command)
+        elif command[1] == 'add':
+            argument = command[2:]
+            Gitobj.gitAdd(argument)
+        elif command[1] == 'status':
+            Gitobj.gitStatus()
+        elif command[1] == 'commit':
+            Gitobj.ExecCommit()
+    else:
+        sys.exit(0)
 
-            command = string.split(' ')
-            if command[1] == 'init':
-                Gitobj.ExecInit(command)
-            elif command[1] == 'add':
-                argument = command[2:]
-                Gitobj.gitAdd(argument)
-            elif command[1] == 'status':
-                Gitobj.gitStatus()
-            elif command[1] == 'commit':
-                Gitobj.ExecCommit()
-
-            string = str(input())
-
-        else:
-            sys.exit(0)
-
+    Gitobj.writeToTxt()
 
 if __name__ == '__main__':
     main()
