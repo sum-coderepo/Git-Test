@@ -17,20 +17,31 @@ class GitRepository(object):
     def __init__(self, path, force=False):
         self.worktree = path
         self.gitdir = os.path.join(path, ".git")
-        self.logfile = os.path.join(self.gitdir, ".log")
+        self.logfile = os.path.join(self.gitdir, "log.txt")
         self.gitRepoPath = os.path.join(self.gitdir, "Repository")
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
         self.UntrackedFilePath = os.path.join(self.gitdir, "UntrackedFile.txt")
+        self.indexFile = os.path.join(self.gitdir, "index.txt")
+        self.workingDirectoryFiles = set()
         self.trackedFiles = set()
-        self.trackingArea = {}
         self.modifiedFiles = set()
-        self.indexFile = os.path.join(self.gitdir, ".index")
         self.index = {}
+        self.trackingArea = {}
         self.commitHead = None
-        self.untrackedFiles = set()
         self.worktree = None
         self.treeOfCommits = {}
 
+    def writeToTxt(self):
+        tracked_txt = open('./.git/trackedFile.txt', 'w')
+        for file in self.trackedFiles:
+            tracked_txt.write(str(file))
+            tracked_txt.write("\n")
+
+    def readFromTxt(self):
+        tracked_txt = open('./.git/trackedFile.txt', 'r')
+        for file in tracked_txt:
+            path = pathlib.Path(os.path.abspath(file))
+            self.trackedFiles.add(path)
 
     def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
@@ -43,62 +54,77 @@ class GitRepository(object):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
                 self.trackingArea[p] = self.shaOf(p)
+                # tracking area -> json -> .txt
                 self.trackedFiles.add(p)
-                self.untrackedFiles.remove(p)
+                # tracked files -> json -> .txt
             elif ((p.is_dir()) & (not p.match("*/.git"))):
                 self.addDir(p)
 
-
-    def addDirToUntrackedFiles(self, path):
+    def addFilesOfWorkingDirectory(self, path):
         absolutePath = pathlib.Path(os.path.abspath(path))
         for p in pathlib.Path(absolutePath).iterdir():
-            if ((p.is_file()) & ( p not in self.trackedFiles)):
-                    self.untrackedFiles.add(p)
+            if p.is_file():
+                self.workingDirectoryFiles.add(p)
             elif ((p.is_dir()) & (not p.match("*/.git"))):
-                self.addDirToUntrackedFiles(p)
+                self.addFilesOfWorkingDirectory(p)
 
-    def gitAdd(self, p ):
-        path = p[2]
-        self.addDirToUntrackedFiles(".")
-
-        absolutePath = pathlib.Path(os.path.abspath(path))
-        if absolutePath.is_file():
-            self.trackingArea[absolutePath] = self.shaOf(path)
-            self.trackedFiles.add(absolutePath)
-            self.untrackedFiles.remove(absolutePath)
-        elif absolutePath.is_dir():
-            self.addDir(absolutePath)
-
+    def gitAdd(self, p):
+        # p is a list of arguments
+        # .txt -> json -> tracking area
+        # .txt -> tracked files
+        for element in p:
+            absolutePath = pathlib.Path(os.path.abspath(element))
+            if absolutePath.is_file():
+                self.trackingArea[absolutePath] = self.shaOf(element)
+                # tracking area -> json -> .txt
+                print("path -> ", absolutePath)
+                self.trackedFiles.add(absolutePath)
+                # tracked files -> .txt
+            elif absolutePath.is_dir():
+                self.addDir(absolutePath)
+        self.writeToTxt()
 
     def gitStatus(self):
+        self.workingDirectoryFiles.clear()
+        self.modifiedFiles.clear()
+        self.addFilesOfWorkingDirectory(".")
+
+        temp = set()
+        for i in self.trackingArea:
+            temp.add(i)
+
+        untrackedFiles = self.workingDirectoryFiles - temp
+
         cwd = pathlib.Path(os.path.abspath("."))
         position = len(str(cwd))
 
-        print("\nAdded Files:")
-        counter = 0
-        for item in self.trackedFiles:
-            path = str(item)[position+1:]
-            print(str(counter+1) + "-> " + Fore.GREEN + path + Fore.WHITE)
-            counter = counter+1
+        if len(self.trackedFiles) != 0:
+            print("\nAdded Files:")
+            counter = 0
+            for item in self.trackedFiles:
+                path = str(item)[position+1:]
+                print(str(counter+1) + "-> " + Fore.GREEN + path + Fore.WHITE)
+                counter = counter+1
 
-        print("\nUntracked Files:")
-        counter = 0
-        for item in self.untrackedFiles:
-            path = str(item)[position+1:]
-            print(str(counter+1) + "-> " + Fore.RED + path + Fore.WHITE)
-            counter = counter+1
+        if len(untrackedFiles) != 0:
+            print("\nUntracked Files:")
+            counter = 0
+            for item in untrackedFiles:
+                path = str(item)[position+1:]
+                print(str(counter+1) + "-> " + Fore.RED + path + Fore.WHITE)
+                counter = counter+1
 
         for i in self.trackingArea:
             if self.trackingArea[i] != self.shaOf(i):
                 self.modifiedFiles.add(i)
 
-        print("\nModified Files:")
-        counter = 0
-        for item in self.modifiedFiles:
-            path = str(item)[position+1:]
-            print(str(counter+1) + "-> " + Fore.YELLOW + path + Fore.WHITE)
-            counter = counter+1
-
+        if len(self.modifiedFiles) != 0:
+            print("\nModified Files:")
+            counter = 0
+            for item in self.modifiedFiles:
+                path = str(item)[position+1:]
+                print(str(counter+1) + "-> " + Fore.YELLOW + path + Fore.WHITE)
+                counter = counter+1
 
     def getCommitId(self):
         t = str(time.time())
@@ -107,8 +133,7 @@ class GitRepository(object):
         soc.update(t_encoded)
         return soc.hexdigest()
 
-
-    def getExtension( self, fileName):
+    def getExtension(self, fileName):
         pos = str(fileName).rfind(".")
         extension = str(fileName)[pos:]
         return extension
@@ -127,45 +152,44 @@ class GitRepository(object):
         if not os.path.exists(self.gitRepoPath):
             os.mkdir(self.gitRepoPath)
 
-
     def ExecCommit(self):
         if len(self.index) == 0:
             self.commitHead = None
         curr_commit_id = self.getCommitId()
-        self.treeOfCommits[curr_commit_id] = self.commitHead # Parent Commit
+        self.treeOfCommits[curr_commit_id] = self.commitHead  # Parent Commit
         self.index[curr_commit_id] = {}
         for fileName in self.trackingArea:
             self.index[curr_commit_id][fileName] = self.shaOf(fileName)
-            if (self.trackingArea[fileName] is None) or (self.index.get(self.treeOfCommits.get(curr_commit_id , {}), {}).get('fileName') != self.trackingArea[fileName]):
+            if (self.trackingArea[fileName] is None) or (self.index.get(self.treeOfCommits.get(curr_commit_id, {}), {}).get('fileName') != self.index[curr_commit_id][fileName]):
+                # need to ponder
                 self.trackingArea[fileName] = self.index[curr_commit_id][fileName]
                 extension = self.getExtension(fileName)
-                dest = self.gitRepoPath + "\\" + self.index[curr_commit_id][fileName] + extension
+                dest = self.gitRepoPath + "\\" + \
+                    self.index[curr_commit_id][fileName] + extension
                 shutil.copy(fileName, dest)
         self.commitHead = curr_commit_id
-
-
-
-
+        self.trackedFiles.clear()
+        self.modifiedFiles.clear()
 
 
 def main():
     print("Enter Input:")
     string = str(input())
-    print(os.getcwd())
+    # print(os.getcwd())
 
     Gitobj = GitRepository(os.getcwd())
 
-
     while(True):
         if len(string) > 0:
-            print(string)
-            print(Gitobj.gitdir)
+            # print(string)
+            # print(Gitobj.gitdir)
 
             command = string.split(' ')
             if command[1] == 'init':
                 Gitobj.ExecInit(command)
             elif command[1] == 'add':
-                Gitobj.gitAdd(command)
+                argument = command[2:]
+                Gitobj.gitAdd(argument)
             elif command[1] == 'status':
                 Gitobj.gitStatus()
             elif command[1] == 'commit':
