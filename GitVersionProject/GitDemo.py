@@ -145,6 +145,9 @@ class GitRepository(object):
         return extension
 
     def ExecInit(self, cmd):
+        if os.path.exists(self.gitdir):
+            print("Git has been already initialised")
+            sys.exit(0)
         if not os.path.exists(self.gitdir):
             os.mkdir(self.gitdir)
         if not os.path.exists(self.logfile):
