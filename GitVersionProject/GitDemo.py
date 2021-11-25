@@ -22,38 +22,56 @@ class GitRepository(object):
         self.trackingAreaPath = os.path.join(self.gitdir, "trackingArea.json")
         self.treeOfCommitsPath = os.path.join(
             self.gitdir, "treeOfCommits.json")
-        self.indexFile = os.path.join(
-            self.gitdir, "index.json")  # extension changed
+        self.indexFile = os.path.join(self.gitdir, "index.json")
         self.workingDirectoryFiles = set()
         self.trackedFiles = set()
         self.modifiedFiles = set()
-        self.index = {}  # make persistent
+        self.index = {}  # make persistent -> SUMEET
         self.trackingArea = {}
-        self.commitHead = None  # make persistent
-        self.treeOfCommits = {}  # make persistent
+        self.commitHead = None
+        self.treeOfCommits = {}
 
-    def writeToTxt(self):
+    def writeToTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
         for file in self.trackedFiles:
             line = str(file) + "\n"
             tracked_txt.write(line)
 
-    def readFromTxt(self):
+    def readFromTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'r')
         for file in tracked_txt:
             path = pathlib.Path(os.path.abspath(file))
             self.trackedFiles.add(path)
 
-    def writeToJson(self):
+    def writeToTxt_ch(self):
+        tracked_txt = open('./.git/commitHead.txt', 'w')
+        tracked_txt.write(self.commitHead)
+
+    def readFromTxt_ch(self):
+        tracked_txt = open('./.git/commitHead.txt', 'r')
+        self.commitHead = tracked_txt.read()
+
+    def writeToJson_ta(self):
         tracking_json = open('./.git/trackingArea.json', 'w')
         temp = {}
         for item in self.trackingArea:
             temp[str(item)] = self.trackingArea[item]
         json.dump(temp, tracking_json)
 
-    def readFromJson(self):
+    def readFromJson_ta(self):
         tracking_json = open('./.git/trackingArea.json', 'r')
         self.trackingArea = json.load(tracking_json)
+
+    def writeToJson_toc(self):
+        toc_json = open('./.git/treeOfCommits.json', 'w')
+        temp = {}
+        for item in self.treeOfCommits:
+            temp[str(item)] = self.treeOfCommits[item]
+        json.dump(temp, toc_json)
+
+    def readFromJson_toc(self):
+        toc_json = open('./.git/treeOfCommits', 'r')
+        self.treeOfCommits = json.load(toc_json)
 
     def writeToIndexJson(self):  # check
         index_json = open('./.git/trackingArea.json', 'w')
@@ -157,18 +175,25 @@ class GitRepository(object):
             sys.exit(0)
         if not os.path.exists(self.gitdir):
             os.mkdir(self.gitdir)
+
         if not os.path.exists(self.logfile):
             open(self.logfile, 'w').close()
+
         if not os.path.exists(self.trackedFilePath):
             open(self.trackedFilePath, 'w').close()
-        if not os.path.exists(self.trackingAreaPath):
-            open(self.trackingAreaPath, 'w').close()
+
         if not os.path.exists(self.commitHeadPath):
             open(self.commitHeadPath, 'w').close()
+
         if not os.path.exists(self.treeOfCommitsPath):
             open(self.treeOfCommitsPath, 'w').close()
+
         if not os.path.exists(self.indexFile):
             open(self.indexFile, 'w').close()
+
+        if not os.path.exists(self.trackingAreaPath):
+            open(self.trackingAreaPath, 'w').close()
+
         if not os.path.exists(self.gitRepoPath):
             os.mkdir(self.gitRepoPath)
 
@@ -236,8 +261,8 @@ def main():
     Gitobj = GitRepository(os.getcwd())
 
     if os.path.exists(Gitobj.gitdir):
-        Gitobj.readFromTxt()
-        Gitobj.readFromJson()
+        Gitobj.readFromTxt_tf()
+        Gitobj.readFromJson_ta()
         Gitobj.readFromIndexJson()
 
     command = sys.argv
@@ -267,10 +292,11 @@ def main():
     else:
         sys.exit(0)
 
-    Gitobj.writeToTxt()  # trackedFiles
-    Gitobj.writeToJson()  # trackingArea
+    Gitobj.writeToTxt_tf()  # trackedFiles
+    Gitobj.writeToJson_ta()  # trackingArea
     Gitobj.writeToIndexJson()
-    print(Gitobj.trackingArea)
+    print("TRACKING AREA : \n", Gitobj.trackingArea)
+    print("INDEX : \n",  Gitobj.index)
 
 
 if __name__ == '__main__':
