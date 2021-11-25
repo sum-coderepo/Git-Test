@@ -1,13 +1,13 @@
-import argparse
-import collections
-import configparser
+import os
 import sys
+import time
+import json
+import shutil
+import pathlib
+import hashlib
+import difflib
+import datetime
 from typing import List
-import os  # for is_file(), is_dir(), abspath()
-import pathlib  # for iterdir()
-import hashlib  # for calculating sha256 digest
-import shutil  # for copy()
-import time  # for time()
 from colorama import Fore
 
 
@@ -15,21 +15,85 @@ class GitRepository(object):
     """A git repository"""
 
     def __init__(self, path, force=False):
-        self.worktree = path
         self.gitdir = os.path.join(path, ".git")
-        self.logfile = os.path.join(self.gitdir, ".log")
+        self.logfile = os.path.join(self.gitdir, "log.txt")
         self.gitRepoPath = os.path.join(self.gitdir, "Repository")
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
-        self.UntrackedFilePath = os.path.join(self.gitdir, "UntrackedFile.txt")
-        self.trackedFiles = set()
-        self.trackingArea = {}
+        self.commitHeadPath = os.path.join(self.gitdir, "commitHead.txt")
+        self.trackingAreaPath = os.path.join(self.gitdir, "trackingArea.json")
+        self.treeOfCommitsPath = os.path.join(
+            self.gitdir, "treeOfCommits.json")
+        self.indexFilePath = os.path.join(self.gitdir, "index.json")
+        self.workingDirectoryFiles = set()
         self.modifiedFiles = set()
-        self.indexFile = os.path.join(self.gitdir, ".index")
+        self.trackedFiles = set()
+        self.treeOfCommits = {}
+        self.trackingArea = {}
         self.index = {}
         self.commitHead = None
-        self.untrackedFiles = set()
-        self.worktree = None
-        self.treeOfCommits = {}
+
+# writing from data structures into the files in .git folder
+
+    def writeToTxt_tf(self):
+        tracked_txt = open('./.git/trackedFile.txt', 'w')
+        for file in self.trackedFiles:
+            line = str(file) + "\n"
+            tracked_txt.write(line)
+
+    def writeToTxt_ch(self):
+        tracked_txt = open('./.git/commitHead.txt', 'w')
+        if self.commitHead is None:
+            to_write = "None"
+        else:
+            to_write = str(self.commitHead)
+
+        tracked_txt.write(to_write)
+
+    def writeToJson_ta(self):
+        tracking_json = open('./.git/trackingArea.json', 'w')
+        temp = {}
+        for item in self.trackingArea:
+            temp[str(item)] = self.trackingArea[item]
+        json.dump(temp, tracking_json)
+
+    def writeToJson_toc(self):
+        toc_json = open('./.git/treeOfCommits.json', 'w')
+        temp = {}
+        for item in self.treeOfCommits:
+            temp[str(item)] = self.treeOfCommits[item]
+        json.dump(temp, toc_json)
+
+    def writeToJson_index(self):  # check
+        index_json = open('./.git/index.json', 'w')
+        json.dump(self.index, index_json)
+
+
+# reading from files into data structures from .git folder
+
+    def readFromTxt_tf(self):
+        tracked_txt = open('./.git/trackedFile.txt', 'r')
+        for file in tracked_txt:
+            path = pathlib.Path(os.path.abspath(file))
+            self.trackedFiles.add(path)
+
+    def readFromTxt_ch(self):
+        tracked_txt = open('./.git/commitHead.txt', 'r')
+        self.commitHead = tracked_txt.read()
+
+    def readFromJson_ta(self):
+        tracking_json = open('./.git/trackingArea.json', 'r')
+        self.trackingArea = json.load(tracking_json)
+
+    def readFromJson_toc(self):
+        toc_json = open('./.git/treeOfCommits.json', 'r')
+        self.treeOfCommits = json.load(toc_json)
+
+    def raedFromJson_index(self):  # check
+        index_json = open('./.git/index.json', 'r')
+        self.index = json.load(index_json)
+
+
+# utility functions
 
     def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
@@ -38,63 +102,124 @@ class GitRepository(object):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
+
+# git_INIT
+
+    def ExecInit(self, cmd):
+        if os.path.exists(self.gitdir):
+            print("\n<<-- Git Directory has been ALREADY initialised -->>\n")
+            sys.exit(0)
+
+        if not os.path.exists(self.gitdir):
+            os.mkdir(self.gitdir)
+
+        if not os.path.exists(self.logfile):
+            open(self.logfile, 'w').close()
+
+        if not os.path.exists(self.trackedFilePath):
+            open(self.trackedFilePath, 'w').close()
+
+        if not os.path.exists(self.commitHeadPath):
+            open(self.commitHeadPath, 'w').close()
+
+        if not os.path.exists(self.treeOfCommitsPath):
+            open(self.treeOfCommitsPath, 'w').close()
+
+        if not os.path.exists(self.indexFilePath):
+            open(self.indexFilePath, 'w').close()
+
+        if not os.path.exists(self.trackingAreaPath):
+            open(self.trackingAreaPath, 'w').close()
+
+        if not os.path.exists(self.gitRepoPath):
+            os.mkdir(self.gitRepoPath)
+
+
+# git_ADD
+
     def addDir(self, path):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
                 self.trackingArea[p] = self.shaOf(p)
                 self.trackedFiles.add(p)
-                self.untrackedFiles.remove(p)
             elif ((p.is_dir()) & (not p.match("*/.git"))):
                 self.addDir(p)
 
-    def addDirToUntrackedFiles(self, path):
+    def gitAdd(self, p):
+        # p is a list of arguments
+        for element in p:
+            # print(" ->", element)
+            absolutePath = pathlib.Path(os.path.abspath(element))
+            if absolutePath.is_file():
+                self.trackingArea[absolutePath] = self.shaOf(element)
+                self.trackedFiles.add(absolutePath)
+            elif absolutePath.is_dir():
+                self.addDir(absolutePath)
+
+
+# git_STATUS
+
+    def addFilesOfWorkingDirectory(self, path):
         absolutePath = pathlib.Path(os.path.abspath(path))
         for p in pathlib.Path(absolutePath).iterdir():
-            if ((p.is_file()) & (p not in self.trackedFiles)):
-                self.untrackedFiles.add(p)
+            if p.is_file():
+                self.workingDirectoryFiles.add(p)
             elif ((p.is_dir()) & (not p.match("*/.git"))):
-                self.addDirToUntrackedFiles(p)
-
-    def gitAdd(self, p):
-        path = p[2]
-        self.addDirToUntrackedFiles(".")
-
-        absolutePath = pathlib.Path(os.path.abspath(path))
-        if absolutePath.is_file():
-            self.trackingArea[absolutePath] = self.shaOf(path)
-            self.trackedFiles.add(absolutePath)
-            self.untrackedFiles.remove(absolutePath)
-        elif absolutePath.is_dir():
-            self.addDir(absolutePath)
+                self.addFilesOfWorkingDirectory(p)
 
     def gitStatus(self):
+        self.workingDirectoryFiles.clear()
+        self.modifiedFiles.clear()
+        self.addFilesOfWorkingDirectory(".")
+
+        temp = set()
+        temp2 = set()
+        untrackedFiles = set()
+
+        for i in self.workingDirectoryFiles:
+            temp.add(str(i))
+
+        for i in self.trackingArea:
+            temp2.add(str(i))
+
+        untrackedFiles = temp.difference(temp2)
+
         cwd = pathlib.Path(os.path.abspath("."))
         position = len(str(cwd))
 
-        print("\nAdded Files:")
-        counter = 0
-        for item in self.trackedFiles:
-            path = str(item)[position+1:]
-            print(str(counter+1) + "-> " + Fore.GREEN + path + Fore.WHITE)
-            counter = counter+1
+        if len(self.trackedFiles) != 0:
+            print("\nAdded Files:")
+            counter = 0
+            for item in self.trackedFiles:
+                path = str(item)[position+1:]
+                if path == "\n":
+                    continue
+                print(str(counter+1) + "-> " + Fore.GREEN + path + Fore.WHITE)
+                counter = counter+1
 
-        print("\nUntracked Files:")
-        counter = 0
-        for item in self.untrackedFiles:
-            path = str(item)[position+1:]
-            print(str(counter+1) + "-> " + Fore.RED + path + Fore.WHITE)
-            counter = counter+1
+        if len(untrackedFiles) != 0:
+            print("\nUntracked Files:")
+            counter = 0
+            for item in untrackedFiles:
+                path = str(item)[position+1:]
+                print(str(counter+1) + "-> " +
+                      Fore.RED + path + Fore.WHITE + "\n")
+                counter = counter+1
 
         for i in self.trackingArea:
             if self.trackingArea[i] != self.shaOf(i):
                 self.modifiedFiles.add(i)
 
-        print("\nModified Files:")
-        counter = 0
-        for item in self.modifiedFiles:
-            path = str(item)[position+1:]
-            print(str(counter+1) + "-> " + Fore.YELLOW + path + Fore.WHITE)
-            counter = counter+1
+        if len(self.modifiedFiles) != 0:
+            print("\nModified Files:")
+            counter = 0
+            for item in self.modifiedFiles:
+                path = str(item)[position+1:]
+                print(str(counter+1) + "-> " + Fore.YELLOW + path + Fore.WHITE)
+                counter = counter+1
+
+
+# git_COMMIT
 
     def getCommitId(self):
         t = str(time.time())
@@ -108,63 +233,151 @@ class GitRepository(object):
         extension = str(fileName)[pos:]
         return extension
 
-    def ExecInit(self, cmd):
-        if not os.path.exists(self.gitdir):
-            os.mkdir(self.gitdir)
-        if not os.path.exists(self.logfile):
-            open(self.logfile, 'w').close()
-        if not os.path.exists(self.trackedFilePath):
-            open(self.trackedFilePath, 'w').close()
-        if not os.path.exists(self.UntrackedFilePath):
-            open(self.UntrackedFilePath, 'w').close()
-        if not os.path.exists(self.indexFile):
-            open(self.indexFile, 'w').close()
-        if not os.path.exists(self.gitRepoPath):
-            os.mkdir(self.gitRepoPath)
-
     def ExecCommit(self):
         if len(self.index) == 0:
             self.commitHead = None
+
         curr_commit_id = self.getCommitId()
+        # if no changes then why commit..?
+
         self.treeOfCommits[curr_commit_id] = self.commitHead  # Parent Commit
         self.index[curr_commit_id] = {}
+
         for fileName in self.trackingArea:
             self.index[curr_commit_id][fileName] = self.shaOf(fileName)
-            if (self.trackingArea[fileName] is None) or (self.index.get(self.treeOfCommits.get(curr_commit_id, {}), {}).get('fileName') != self.trackingArea[fileName]):
+            if (self.trackingArea[fileName] is None) or (self.index.get(self.treeOfCommits.get(curr_commit_id, {}), {}).get('fileName') != self.index[curr_commit_id][fileName]):
+                # need to ponder
                 self.trackingArea[fileName] = self.index[curr_commit_id][fileName]
                 extension = self.getExtension(fileName)
-                dest = self.gitRepoPath + "\\" + \
+                dest = self.gitRepoPath + "/" + \
                     self.index[curr_commit_id][fileName] + extension
+                # print('destination path : ', dest)
                 shutil.copy(fileName, dest)
+
+        # updating logs
+        log_txt = open('./.git/log.txt', 'r+')
+        to_write = "Commit : " + str(self.commitHead) + "\n"
+        time = datetime.datetime.now()
+        to_write += "Date : " + str(time.strftime("%c")) + "\n\n"
+        prev_log = log_txt.read()
+        log_txt.seek(0, 0)
+        log_txt.write(to_write.rstrip('\r\n') + '\n' + prev_log)
+
         self.commitHead = curr_commit_id
+        self.trackedFiles.clear()
+        self.modifiedFiles.clear()
+
+
+# git_DIFF
+
+    def printDifference(self, file1, file2):
+        f1 = open(file1).readlines
+        f2 = open(file2).readlines
+
+        delta = difflib.unified_diff(f1, f2)
+        sys.stdout.writelines(delta)
+
+    def diff(self, c1, c2):
+        c1_files = self.index[c1]
+        c2_files = self.index[c2]
+
+        addedFiles = set()
+        deletedFiles = set()
+
+        print("Modified files")
+        for file in c1_files:
+            if file in c2_files and c2_files[file] != c1_files[file]:
+                ex = self.getExtension(file)
+                print(file)
+                f1 = './.git/Repository/'+c1_files[file]+ex
+                f2 = './.git/Repository/'+c2_files[file]+ex
+                self.printDifference(f1, f2)
+            elif file not in c2_files:
+                addedFiles.add(file)
+
+        if len(addedFiles) != 0:
+            print("Added Files")
+        for f in addedFiles:
+            print(f)
+
+        for file in c2_files:
+            if file not in c1_files:
+                deletedFiles.add(file)
+
+        if len(deletedFiles) != 0:
+            print("Deleted Files")
+        for f in deletedFiles:
+            print(f)
+
+
+# git_LOG
+
+    def log(self):
+        log_txt = open('./.git/log.txt', 'r')
+        for line in log_txt:
+            print(line)
+            #formatting is needed
 
 
 def main():
-    print("Enter Input:")
-    string = str(input())
-    print(os.getcwd())
 
     Gitobj = GitRepository(os.getcwd())
 
-    while(True):
-        if len(string) > 0:
-            print(string)
-            print(Gitobj.gitdir)
+    if os.path.exists(Gitobj.gitdir):
+        Gitobj.readFromTxt_ch()
+        Gitobj.readFromTxt_tf()
+        Gitobj.readFromJson_ta()
+        Gitobj.readFromJson_toc()
+        Gitobj.raedFromJson_index()
 
-            command = string.split(' ')
-            if command[1] == 'init':
-                Gitobj.ExecInit(command)
-            elif command[1] == 'add':
-                Gitobj.gitAdd(command)
-            elif command[1] == 'status':
-                Gitobj.gitStatus()
-            elif command[1] == 'commit':
-                Gitobj.ExecCommit()
+    command = sys.argv
 
-            string = str(input())
+    if len(command) > 0:
+        if command[1] == 'init':
+            Gitobj.ExecInit(command)
+            print("\n<<-- Git Directory has been initialised -->>\n")
 
-        else:
-            sys.exit(0)
+        elif command[1] == 'add':
+            if len(command) == 2:
+                argument = ["."]
+            else:
+                argument = command[2:]
+            Gitobj.gitAdd(argument)
+            print("\n<<-- Given file(s) have been added to Staging Area -->>\n")
+
+        elif command[1] == 'status':
+            Gitobj.gitStatus()
+            print("\n<<-- Current Status -->>\n")
+
+        elif command[1] == 'commit':
+            Gitobj.ExecCommit()
+            print("\n<<-- Changes have been committed -->>\n")
+
+        elif command[1] == 'diff':
+            if len(command) == 2:
+                if Gitobj.commitHead != None and Gitobj.treeOfCommits[Gitobj.commitHead] != None:
+                    Gitobj.diff(Gitobj.commitHead,
+                                Gitobj.treeOfCommits[Gitobj.commitHead])
+            elif len(command) == 4:
+                Gitobj.diff(command[2], command[3])
+
+        elif command[1] == 'log':
+            Gitobj.log()
+            print("\n<<-- End of Logs -->>\n")
+    else:
+        sys.exit(0)
+
+    Gitobj.writeToTxt_ch()
+    Gitobj.writeToTxt_tf()
+    Gitobj.writeToJson_ta()
+    Gitobj.writeToJson_toc()
+    Gitobj.writeToJson_index()
+    # print("\nCommit Head : ", Gitobj.commitHead)
+    # print("Tracked Files : \n", Gitobj.trackedFiles)
+    # print("Tracking Area : \n", Gitobj.trackingArea)
+    # print("Tree Of Commits : \n", Gitobj.treeOfCommits)
+    # print("INDEX : \n",  Gitobj.index)
+    print("")
 
 
 if __name__ == '__main__':
