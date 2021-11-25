@@ -23,7 +23,7 @@ class GitRepository(object):
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
         self.trackingAreaPath = os.path.join(
             self.gitdir, "trackingArea.json")
-        self.indexFile = os.path.join(self.gitdir, "index.txt")
+        self.indexFile = os.path.join(self.gitdir, "index.json")    #extension changed
         self.workingDirectoryFiles = set()
         self.trackedFiles = set()
         self.modifiedFiles = set()
@@ -55,6 +55,14 @@ class GitRepository(object):
     def readFromJson(self):
         tracking_json = open('./.git/trackingArea.json', 'r')
         self.trackingArea = json.load(tracking_json)
+
+    def writeToIndexJson(self):             #check     
+        index_json = open('./.git/trackingArea.json', 'w')
+        json.dump(self.index, index_json)
+
+    def readFromIndexJson(self):            #check
+        index_json = open('./.git/index.json', 'r')
+        self.index = json.load(index_json)
 
     def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
@@ -199,7 +207,9 @@ class GitRepository(object):
             if file in c2_files and c2_files[file] != c1_files[file]:
                 ex = self.getExtension(file)
                 print(file)
-                self.printDifference(c1_files[file]+ex, c2_files[file]+ex)
+                f1 = './.git/Repository/'+c1_files[file]+ex
+                f2 = './.git/Repository/'+c2_files[file]+ex
+                self.printDifference(f1, f2)
             elif file not in c2_files:
                 addedFiles.add(file)
 
@@ -242,6 +252,7 @@ def main():
 
         elif command[1] == 'commit':
             Gitobj.ExecCommit()
+
         elif command[1] == 'diff':
             if len(command) == 2:
                 Gitobj.diff(Gitobj.commitHead, Gitobj.treeOfCommits[Gitobj.commitHead])
