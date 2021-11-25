@@ -265,8 +265,7 @@ def main():
         Gitobj.readFromTxt_ch()
         Gitobj.readFromJson_toc()
 
-    #command = sys.argv
-    command = ['a', 'commit']
+    command = sys.argv
     if len(command) > 0:
         if command[1] == 'init':
             Gitobj.ExecInit(command)
