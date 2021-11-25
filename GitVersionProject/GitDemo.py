@@ -6,6 +6,7 @@ import hashlib  # for calculating sha256 digest
 import shutil  # for copy()
 import time  # for time()
 from colorama import Fore
+import difflib
 
 
 class GitRepository(object):
@@ -171,6 +172,43 @@ class GitRepository(object):
         self.trackedFiles.clear()
         self.modifiedFiles.clear()
 
+    def printDifference (self, file1, file2):
+        f1 = open(file1).readlines
+        f2 = open(file2).readlines
+
+        delta = difflib.unified_diff(f1, f2)
+        sys.stdout.writelines(delta)
+
+    def diff(self, c1, c2):
+        c1_files = self.index[c1]
+        c2_files = self.index[c2]
+
+        addedFiles = set()
+        deletedFiles = set()
+
+        print("Modified files")
+        for file in c1_files:
+            if file in c2_files and c2_files[file] != c1_files[file]:
+                ex = self.getExtension(file)
+                print(file)
+                self.printDifference(c1_files[file]+ex, c2_files[file]+ex)
+            elif file not in c2_files:
+                addedFiles.add(file)
+
+        if len(addedFiles) != 0:
+            print("Added Files")
+        for f in addedFiles:
+            print(f)
+
+        for file in c2_files:
+            if file not in c1_files:
+                deletedFiles.add(file)
+
+        if len(deletedFiles) != 0:
+            print("Deleted Files")
+        for f in deletedFiles:
+            print(f)
+
 
 def main():
     # print(os.getcwd())
@@ -190,6 +228,11 @@ def main():
             Gitobj.gitStatus()
         elif command[1] == 'commit':
             Gitobj.ExecCommit()
+        elif command[1] == 'diff':
+            if len(command) == 2:
+                Gitobj.diff(Gitobj.commitHead, Gitobj.treeOfCommits[Gitobj.commitHead])
+            elif len(command) == 4:
+                Gitobj.diff(command[2], command[3])
     else:
         sys.exit(0)
 
