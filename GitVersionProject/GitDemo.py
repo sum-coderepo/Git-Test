@@ -199,6 +199,8 @@ class GitRepository(object):
             counter = 0
             for item in self.trackedFiles:
                 path = str(item)[position+1:]
+                if path == "\n":
+                    continue
                 print(str(counter+1) + "-> " + Fore.GREEN + path + Fore.WHITE)
                 counter = counter+1
 
