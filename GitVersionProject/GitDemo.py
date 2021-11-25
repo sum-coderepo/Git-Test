@@ -1,13 +1,14 @@
+import os
 import sys
-from typing import List
-import os  # for is_file(), is_dir(), abspath()
-import pathlib  # for iterdir()
-import hashlib  # for calculating sha256 digest
-import shutil  # for copy()
-import time  # for time()
-from colorama import Fore
-import difflib
+import time
 import json
+import shutil
+import pathlib
+import hashlib
+import difflib
+from typing import List
+from colorama import Fore
+
 
 class GitRepository(object):
     """A git repository"""
@@ -19,35 +20,32 @@ class GitRepository(object):
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
         self.commitHeadPath = os.path.join(self.gitdir, "commitHead.txt")
         self.trackingAreaPath = os.path.join(self.gitdir, "trackingArea.json")
-        self.treeOfCommitsPath = os.path.join(self.gitdir, "treeOfCommits.json")
+        self.treeOfCommitsPath = os.path.join(
+            self.gitdir, "treeOfCommits.json")
         self.indexFilePath = os.path.join(self.gitdir, "index.json")
         self.workingDirectoryFiles = set()
-        self.trackedFiles = set()
         self.modifiedFiles = set()
-        self.index = {}
-        self.trackingArea = {}
-        self.commitHead = None
+        self.trackedFiles = set()
         self.treeOfCommits = {}
+        self.trackingArea = {}
+        self.index = {}
+        self.commitHead = None
 
+# writing from data structures into the files in .git folder
     def writeToTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
         for file in self.trackedFiles:
             line = str(file) + "\n"
             tracked_txt.write(line)
 
-    def readFromTxt_tf(self):
-        tracked_txt = open('./.git/trackedFile.txt', 'r')
-        for file in tracked_txt:
-            path = pathlib.Path(os.path.abspath(file))
-            self.trackedFiles.add(path)
-
     def writeToTxt_ch(self):
         tracked_txt = open('./.git/commitHead.txt', 'w')
-        tracked_txt.write(self.commitHead)
+        if self.commitHead is None:
+            to_write = "None"
+        else:
+            to_write = str(self.commitHead)
 
-    def readFromTxt_ch(self):
-        tracked_txt = open('./.git/commitHead.txt', 'r')
-        self.commitHead = tracked_txt.read()
+        tracked_txt.write(to_write)
 
     def writeToJson_ta(self):
         tracking_json = open('./.git/trackingArea.json', 'w')
@@ -56,10 +54,6 @@ class GitRepository(object):
             temp[str(item)] = self.trackingArea[item]
         json.dump(temp, tracking_json)
 
-    def readFromJson_ta(self):
-        tracking_json = open('./.git/trackingArea.json', 'r')
-        self.trackingArea = json.load(tracking_json)
-
     def writeToJson_toc(self):
         toc_json = open('./.git/treeOfCommits.json', 'w')
         temp = {}
@@ -67,17 +61,37 @@ class GitRepository(object):
             temp[str(item)] = self.treeOfCommits[item]
         json.dump(temp, toc_json)
 
-    def readFromJson_toc(self):
-        toc_json = open('./.git/treeOfCommits', 'r')
-        self.treeOfCommits = json.load(toc_json)
-
-    def writeToIndexJson(self):  # check
+    def writeToJson_index(self):  # check
         index_json = open('./.git/index.json', 'w')
         json.dump(self.index, index_json)
 
-    def readFromIndexJson(self):  # check
+
+# reading from files into data structures from .git folder
+
+    def readFromTxt_tf(self):
+        tracked_txt = open('./.git/trackedFile.txt', 'r')
+        for file in tracked_txt:
+            path = pathlib.Path(os.path.abspath(file))
+            self.trackedFiles.add(path)
+
+    def readFromTxt_ch(self):
+        tracked_txt = open('./.git/commitHead.txt', 'r')
+        self.commitHead = tracked_txt.read()
+
+    def readFromJson_ta(self):
+        tracking_json = open('./.git/trackingArea.json', 'r')
+        self.trackingArea = json.load(tracking_json)
+
+    def readFromJson_toc(self):
+        toc_json = open('./.git/treeOfCommits.json', 'r')
+        self.treeOfCommits = json.load(toc_json)
+
+    def raedFromJson_index(self):  # check
         index_json = open('./.git/index.json', 'r')
         self.index = json.load(index_json)
+
+
+# utility functions
 
     def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
@@ -86,6 +100,41 @@ class GitRepository(object):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
+
+# git_INIT
+
+    def ExecInit(self, cmd):
+        if os.path.exists(self.gitdir):
+            print("Git has been already initialised")
+            sys.exit(0)
+
+        if not os.path.exists(self.gitdir):
+            os.mkdir(self.gitdir)
+
+        if not os.path.exists(self.logfile):
+            open(self.logfile, 'w').close()
+
+        if not os.path.exists(self.trackedFilePath):
+            open(self.trackedFilePath, 'w').close()
+
+        if not os.path.exists(self.commitHeadPath):
+            open(self.commitHeadPath, 'w').close()
+
+        if not os.path.exists(self.treeOfCommitsPath):
+            open(self.treeOfCommitsPath, 'w').close()
+
+        if not os.path.exists(self.indexFilePath):
+            open(self.indexFilePath, 'w').close()
+
+        if not os.path.exists(self.trackingAreaPath):
+            open(self.trackingAreaPath, 'w').close()
+
+        if not os.path.exists(self.gitRepoPath):
+            os.mkdir(self.gitRepoPath)
+
+
+# git_ADD
+
     def addDir(self, path):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
@@ -93,14 +142,6 @@ class GitRepository(object):
                 self.trackedFiles.add(p)
             elif ((p.is_dir()) & (not p.match("*/.git"))):
                 self.addDir(p)
-
-    def addFilesOfWorkingDirectory(self, path):
-        absolutePath = pathlib.Path(os.path.abspath(path))
-        for p in pathlib.Path(absolutePath).iterdir():
-            if p.is_file():
-                self.workingDirectoryFiles.add(p)
-            elif ((p.is_dir()) & (not p.match("*/.git"))):
-                self.addFilesOfWorkingDirectory(p)
 
     def gitAdd(self, p):
         # p is a list of arguments
@@ -112,6 +153,17 @@ class GitRepository(object):
                 self.trackedFiles.add(absolutePath)
             elif absolutePath.is_dir():
                 self.addDir(absolutePath)
+
+
+# git_STATUS
+
+    def addFilesOfWorkingDirectory(self, path):
+        absolutePath = pathlib.Path(os.path.abspath(path))
+        for p in pathlib.Path(absolutePath).iterdir():
+            if p.is_file():
+                self.workingDirectoryFiles.add(p)
+            elif ((p.is_dir()) & (not p.match("*/.git"))):
+                self.addFilesOfWorkingDirectory(p)
 
     def gitStatus(self):
         self.workingDirectoryFiles.clear()
@@ -140,7 +192,8 @@ class GitRepository(object):
             counter = 0
             for item in untrackedFiles:
                 path = str(item)[position+1:]
-                print(str(counter+1) + "-> " + Fore.RED + path + Fore.WHITE)
+                print(str(counter+1) + "-> " +
+                      Fore.RED + path + Fore.WHITE + "\n")
                 counter = counter+1
 
         for i in self.trackingArea:
@@ -155,6 +208,9 @@ class GitRepository(object):
                 print(str(counter+1) + "-> " + Fore.YELLOW + path + Fore.WHITE)
                 counter = counter+1
 
+
+# git_COMMIT
+
     def getCommitId(self):
         t = str(time.time())
         t_encoded = t.encode("utf-8")
@@ -167,40 +223,14 @@ class GitRepository(object):
         extension = str(fileName)[pos:]
         return extension
 
-    def ExecInit(self, cmd):
-        if os.path.exists(self.gitdir):
-            print("Git has been already initialised")
-            sys.exit(0)
-        if not os.path.exists(self.gitdir):
-            os.mkdir(self.gitdir)
-
-        if not os.path.exists(self.logfile):
-            open(self.logfile, 'w').close()
-
-        if not os.path.exists(self.trackedFilePath):
-            open(self.trackedFilePath, 'w').close()
-
-        if not os.path.exists(self.commitHeadPath):
-            open(self.commitHeadPath, 'w').close()
-
-        if not os.path.exists(self.treeOfCommitsPath):
-            open(self.treeOfCommitsPath, 'w').close()
-
-        if not os.path.exists(self.indexFilePath):
-            open(self.indexFilePath, 'w').close()
-
-        if not os.path.exists(self.trackingAreaPath):
-            open(self.trackingAreaPath, 'w').close()
-
-        if not os.path.exists(self.gitRepoPath):
-            os.mkdir(self.gitRepoPath)
-
     def ExecCommit(self):
         if len(self.index) == 0:
             self.commitHead = None
+
         curr_commit_id = self.getCommitId()
         self.treeOfCommits[curr_commit_id] = self.commitHead  # Parent Commit
         self.index[curr_commit_id] = {}
+
         for fileName in self.trackingArea:
             self.index[curr_commit_id][fileName] = self.shaOf(fileName)
             if (self.trackingArea[fileName] is None) or (self.index.get(self.treeOfCommits.get(curr_commit_id, {}), {}).get('fileName') != self.index[curr_commit_id][fileName]):
@@ -210,9 +240,13 @@ class GitRepository(object):
                 dest = self.gitRepoPath + "\\" + \
                     self.index[curr_commit_id][fileName] + extension
                 shutil.copy(fileName, dest)
+
         self.commitHead = curr_commit_id
         self.trackedFiles.clear()
         self.modifiedFiles.clear()
+
+
+# git_DIFF
 
     def printDifference(self, file1, file2):
         f1 = open(file1).readlines
@@ -259,22 +293,23 @@ def main():
     Gitobj = GitRepository(os.getcwd())
 
     if os.path.exists(Gitobj.gitdir):
+        Gitobj.readFromTxt_ch()
         Gitobj.readFromTxt_tf()
         Gitobj.readFromJson_ta()
-        Gitobj.readFromIndexJson()
-        Gitobj.readFromTxt_ch()
         Gitobj.readFromJson_toc()
+        Gitobj.raedFromJson_index()
 
     command = sys.argv
+
     if len(command) > 0:
         if command[1] == 'init':
             Gitobj.ExecInit(command)
-            print("Git Directory has been initialised..\n")
+            print("\n<<-- Git Directory has been initialised -->>\n")
 
         elif command[1] == 'add':
             argument = command[2:]
             Gitobj.gitAdd(argument)
-            print("Given files have been added to Staging Area..\n")
+            print("\n<<-- Given files have been added to Staging Area -->>\n")
 
         elif command[1] == 'status':
             Gitobj.gitStatus()
@@ -292,12 +327,16 @@ def main():
     else:
         sys.exit(0)
 
-    Gitobj.writeToTxt_tf()  # trackedFiles
-    Gitobj.writeToJson_ta()  # trackingArea
-    Gitobj.writeToIndexJson()
     Gitobj.writeToTxt_ch()
+    Gitobj.writeToTxt_tf()
+    Gitobj.writeToJson_ta()
     Gitobj.writeToJson_toc()
-    print("TRACKING AREA : \n", Gitobj.trackingArea)
+    Gitobj.writeToJson_index()
+
+    print("\nCommit Head : ", Gitobj.commitHead)
+    print("Tracked Files : \n", Gitobj.trackedFiles)
+    print("Tracking Area : \n", Gitobj.trackingArea)
+    print("Tree Of Commits : \n", Gitobj.treeOfCommits)
     print("INDEX : \n",  Gitobj.index)
 
 
