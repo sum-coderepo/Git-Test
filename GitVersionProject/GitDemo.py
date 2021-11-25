@@ -68,6 +68,7 @@ class GitRepository(object):
 
 # reading from files into data structures from .git folder
 
+
     def readFromTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'r')
         for file in tracked_txt:
@@ -93,6 +94,7 @@ class GitRepository(object):
 
 # utility functions
 
+
     def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
         with open(filename, "rb") as f:
@@ -103,9 +105,10 @@ class GitRepository(object):
 
 # git_INIT
 
+
     def ExecInit(self, cmd):
         if os.path.exists(self.gitdir):
-            print("Git has been already initialised")
+            print("\n<<-- Git Directory has been ALREADY initialised -->>\n")
             sys.exit(0)
 
         if not os.path.exists(self.gitdir):
@@ -135,6 +138,7 @@ class GitRepository(object):
 
 # git_ADD
 
+
     def addDir(self, path):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
@@ -146,16 +150,21 @@ class GitRepository(object):
     def gitAdd(self, p):
         # p is a list of arguments
         for element in p:
+            # print(" ->", element)
             absolutePath = pathlib.Path(os.path.abspath(element))
             if absolutePath.is_file():
                 self.trackingArea[absolutePath] = self.shaOf(element)
-                # print("path -> ", absolutePath)
                 self.trackedFiles.add(absolutePath)
             elif absolutePath.is_dir():
                 self.addDir(absolutePath)
 
+        print("Added files : \n")
+        for i in self.trackedFiles:
+            print(i)
+
 
 # git_STATUS
+
 
     def addFilesOfWorkingDirectory(self, path):
         absolutePath = pathlib.Path(os.path.abspath(path))
@@ -171,10 +180,16 @@ class GitRepository(object):
         self.addFilesOfWorkingDirectory(".")
 
         temp = set()
-        for i in self.trackingArea:
-            temp.add(i)
+        temp2 = set()
+        untrackedFiles = set()
 
-        untrackedFiles = self.workingDirectoryFiles - temp
+        for i in self.workingDirectoryFiles:
+            temp.add(str(i))
+
+        for i in self.trackingArea:
+            temp2.add(str(i))
+
+        untrackedFiles = temp.difference(temp2)
 
         cwd = pathlib.Path(os.path.abspath("."))
         position = len(str(cwd))
@@ -210,6 +225,7 @@ class GitRepository(object):
 
 
 # git_COMMIT
+
 
     def getCommitId(self):
         t = str(time.time())
@@ -247,6 +263,7 @@ class GitRepository(object):
 
 
 # git_DIFF
+
 
     def printDifference(self, file1, file2):
         f1 = open(file1).readlines
@@ -307,7 +324,10 @@ def main():
             print("\n<<-- Git Directory has been initialised -->>\n")
 
         elif command[1] == 'add':
-            argument = command[2:]
+            if len(command) == 2:
+                argument = ["."]
+            else:
+                argument = command[2:]
             Gitobj.gitAdd(argument)
             print("\n<<-- Given files have been added to Staging Area -->>\n")
 
@@ -332,12 +352,11 @@ def main():
     Gitobj.writeToJson_ta()
     Gitobj.writeToJson_toc()
     Gitobj.writeToJson_index()
-
-    print("\nCommit Head : ", Gitobj.commitHead)
-    print("Tracked Files : \n", Gitobj.trackedFiles)
-    print("Tracking Area : \n", Gitobj.trackingArea)
-    print("Tree Of Commits : \n", Gitobj.treeOfCommits)
-    print("INDEX : \n",  Gitobj.index)
+    # print("\nCommit Head : ", Gitobj.commitHead)
+    # print("Tracked Files : \n", Gitobj.trackedFiles)
+    # print("Tracking Area : \n", Gitobj.trackingArea)
+    # print("Tree Of Commits : \n", Gitobj.treeOfCommits)
+    # print("INDEX : \n",  Gitobj.index)
 
 
 if __name__ == '__main__':
