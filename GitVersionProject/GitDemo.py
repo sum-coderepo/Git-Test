@@ -1,3 +1,6 @@
+import argparse
+import collections
+import configparser
 import sys
 from typing import List
 import os  # for is_file(), is_dir(), abspath()
@@ -7,7 +10,7 @@ import shutil  # for copy()
 import time  # for time()
 from colorama import Fore
 import difflib
-
+import json
 
 class GitRepository(object):
     """A git repository"""
@@ -18,7 +21,8 @@ class GitRepository(object):
         self.logfile = os.path.join(self.gitdir, "log.txt")
         self.gitRepoPath = os.path.join(self.gitdir, "Repository")
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
-        self.UntrackedFilePath = os.path.join(self.gitdir, "UntrackedFile.txt")
+        self.trackingAreaPath = os.path.join(
+            self.gitdir, "trackingArea.json")
         self.indexFile = os.path.join(self.gitdir, "index.txt")
         self.workingDirectoryFiles = set()
         self.trackedFiles = set()
@@ -32,14 +36,25 @@ class GitRepository(object):
     def writeToTxt(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
         for file in self.trackedFiles:
-            tracked_txt.write(str(file))
-            tracked_txt.write("\n")
+            line = str(file) + "\n"
+            tracked_txt.write(line)
 
     def readFromTxt(self):
         tracked_txt = open('./.git/trackedFile.txt', 'r')
         for file in tracked_txt:
             path = pathlib.Path(os.path.abspath(file))
             self.trackedFiles.add(path)
+
+    def writeToJson(self):
+        tracking_json = open('./.git/trackingArea.json', 'w')
+        temp = {}
+        for item in self.trackingArea:
+            temp[str(item)] = self.trackingArea[item]
+        json.dump(temp, tracking_json)
+
+    def readFromJson(self):
+        tracking_json = open('./.git/trackingArea.json', 'r')
+        self.trackingArea = json.load(tracking_json)
 
     def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
@@ -52,9 +67,7 @@ class GitRepository(object):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
                 self.trackingArea[p] = self.shaOf(p)
-                # tracking area -> json -> .txt
                 self.trackedFiles.add(p)
-                # tracked files -> json -> .txt
             elif ((p.is_dir()) & (not p.match("*/.git"))):
                 self.addDir(p)
 
@@ -68,19 +81,14 @@ class GitRepository(object):
 
     def gitAdd(self, p):
         # p is a list of arguments
-        # .txt -> json -> tracking area
-        # .txt -> tracked files
         for element in p:
             absolutePath = pathlib.Path(os.path.abspath(element))
             if absolutePath.is_file():
                 self.trackingArea[absolutePath] = self.shaOf(element)
-                # tracking area -> json -> .txt
-                print("path -> ", absolutePath)
+                # print("path -> ", absolutePath)
                 self.trackedFiles.add(absolutePath)
-                # tracked files -> .txt
             elif absolutePath.is_dir():
                 self.addDir(absolutePath)
-        self.writeToTxt()
 
     def gitStatus(self):
         self.workingDirectoryFiles.clear()
@@ -138,7 +146,7 @@ class GitRepository(object):
 
     def ExecInit(self, cmd):
         if os.path.exists(self.gitdir):
-            print("Git already initialised")
+            print("Git has been already initialised")
             sys.exit(0)
         if not os.path.exists(self.gitdir):
             os.mkdir(self.gitdir)
@@ -146,8 +154,8 @@ class GitRepository(object):
             open(self.logfile, 'w').close()
         if not os.path.exists(self.trackedFilePath):
             open(self.trackedFilePath, 'w').close()
-        if not os.path.exists(self.UntrackedFilePath):
-            open(self.UntrackedFilePath, 'w').close()
+        if not os.path.exists(self.trackingAreaPath):
+            open(self.trackingAreaPath, 'w').close()
         if not os.path.exists(self.indexFile):
             open(self.indexFile, 'w').close()
         if not os.path.exists(self.gitRepoPath):
@@ -211,21 +219,27 @@ class GitRepository(object):
 
 
 def main():
-    # print(os.getcwd())
 
     Gitobj = GitRepository(os.getcwd())
+
     if os.path.exists(Gitobj.gitdir):
         Gitobj.readFromTxt()
+        Gitobj.readFromJson()
 
     command = sys.argv
     if len(command) > 0:
         if command[1] == 'init':
             Gitobj.ExecInit(command)
+            print("Git Directory has been initialised..\n")
+
         elif command[1] == 'add':
             argument = command[2:]
             Gitobj.gitAdd(argument)
+            print("Given files have been added to Staging Area..\n")
+
         elif command[1] == 'status':
             Gitobj.gitStatus()
+
         elif command[1] == 'commit':
             Gitobj.ExecCommit()
         elif command[1] == 'diff':
@@ -236,7 +250,10 @@ def main():
     else:
         sys.exit(0)
 
-    Gitobj.writeToTxt()
+    Gitobj.writeToTxt()  # trackedFiles
+    Gitobj.writeToJson()  # trackingArea
+    print(Gitobj.trackingArea)
+
 
 if __name__ == '__main__':
     main()
