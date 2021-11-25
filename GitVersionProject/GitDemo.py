@@ -9,7 +9,6 @@ from colorama import Fore
 import difflib
 import json
 
-
 class GitRepository(object):
     """A git repository"""
 
@@ -20,13 +19,12 @@ class GitRepository(object):
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
         self.commitHeadPath = os.path.join(self.gitdir, "commitHead.txt")
         self.trackingAreaPath = os.path.join(self.gitdir, "trackingArea.json")
-        self.treeOfCommitsPath = os.path.join(
-            self.gitdir, "treeOfCommits.json")
-        self.indexFile = os.path.join(self.gitdir, "index.json")
+        self.treeOfCommitsPath = os.path.join(self.gitdir, "treeOfCommits.json")
+        self.indexFilePath = os.path.join(self.gitdir, "index.json")
         self.workingDirectoryFiles = set()
         self.trackedFiles = set()
         self.modifiedFiles = set()
-        self.index = {}  # make persistent -> SUMEET
+        self.index = {}
         self.trackingArea = {}
         self.commitHead = None
         self.treeOfCommits = {}
@@ -74,7 +72,7 @@ class GitRepository(object):
         self.treeOfCommits = json.load(toc_json)
 
     def writeToIndexJson(self):  # check
-        index_json = open('./.git/trackingArea.json', 'w')
+        index_json = open('./.git/index.json', 'w')
         json.dump(self.index, index_json)
 
     def readFromIndexJson(self):  # check
@@ -188,8 +186,8 @@ class GitRepository(object):
         if not os.path.exists(self.treeOfCommitsPath):
             open(self.treeOfCommitsPath, 'w').close()
 
-        if not os.path.exists(self.indexFile):
-            open(self.indexFile, 'w').close()
+        if not os.path.exists(self.indexFilePath):
+            open(self.indexFilePath, 'w').close()
 
         if not os.path.exists(self.trackingAreaPath):
             open(self.trackingAreaPath, 'w').close()
@@ -264,8 +262,11 @@ def main():
         Gitobj.readFromTxt_tf()
         Gitobj.readFromJson_ta()
         Gitobj.readFromIndexJson()
+        Gitobj.readFromTxt_ch()
+        Gitobj.readFromJson_toc()
 
-    command = sys.argv
+    #command = sys.argv
+    command = ['a', 'commit']
     if len(command) > 0:
         if command[1] == 'init':
             Gitobj.ExecInit(command)
@@ -295,6 +296,8 @@ def main():
     Gitobj.writeToTxt_tf()  # trackedFiles
     Gitobj.writeToJson_ta()  # trackingArea
     Gitobj.writeToIndexJson()
+    Gitobj.writeToTxt_ch()
+    Gitobj.writeToJson_toc()
     print("TRACKING AREA : \n", Gitobj.trackingArea)
     print("INDEX : \n",  Gitobj.index)
 
