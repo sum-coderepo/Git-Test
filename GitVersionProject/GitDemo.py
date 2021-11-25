@@ -1,6 +1,3 @@
-import argparse
-import collections
-import configparser
 import sys
 from typing import List
 import os  # for is_file(), is_dir(), abspath()
@@ -16,7 +13,6 @@ class GitRepository(object):
     """A git repository"""
 
     def __init__(self, path, force=False):
-        self.worktree = path
         self.gitdir = os.path.join(path, ".git")
         self.logfile = os.path.join(self.gitdir, "log.txt")
         self.gitRepoPath = os.path.join(self.gitdir, "Repository")
@@ -27,11 +23,10 @@ class GitRepository(object):
         self.workingDirectoryFiles = set()
         self.trackedFiles = set()
         self.modifiedFiles = set()
-        self.index = {}
-        self.trackingArea = {}
-        self.commitHead = None
-        self.worktree = None
-        self.treeOfCommits = {}
+        self.index = {}                 #make persistent
+        self.trackingArea = {}          
+        self.commitHead = None          #make persistent
+        self.treeOfCommits = {}         #make persistent
 
     def writeToTxt(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
@@ -235,6 +230,7 @@ def main():
     if os.path.exists(Gitobj.gitdir):
         Gitobj.readFromTxt()
         Gitobj.readFromJson()
+        Gitobj.readFromIndexJson()
 
     command = sys.argv
     if len(command) > 0:
@@ -255,7 +251,8 @@ def main():
 
         elif command[1] == 'diff':
             if len(command) == 2:
-                Gitobj.diff(Gitobj.commitHead, Gitobj.treeOfCommits[Gitobj.commitHead])
+                if Gitobj.commitHead != None and Gitobj.treeOfCommits[Gitobj.commitHead] != None:
+                    Gitobj.diff(Gitobj.commitHead, Gitobj.treeOfCommits[Gitobj.commitHead])
             elif len(command) == 4:
                 Gitobj.diff(command[2], command[3])
     else:
@@ -263,6 +260,7 @@ def main():
 
     Gitobj.writeToTxt()  # trackedFiles
     Gitobj.writeToJson()  # trackingArea
+    Gitobj.writeToIndexJson()
     print(Gitobj.trackingArea)
 
 
