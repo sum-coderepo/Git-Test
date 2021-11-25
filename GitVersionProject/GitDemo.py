@@ -9,6 +9,7 @@ from colorama import Fore
 import difflib
 import json
 
+
 class GitRepository(object):
     """A git repository"""
 
@@ -17,16 +18,19 @@ class GitRepository(object):
         self.logfile = os.path.join(self.gitdir, "log.txt")
         self.gitRepoPath = os.path.join(self.gitdir, "Repository")
         self.trackedFilePath = os.path.join(self.gitdir, "trackedFile.txt")
-        self.trackingAreaPath = os.path.join(
-            self.gitdir, "trackingArea.json")
-        self.indexFile = os.path.join(self.gitdir, "index.json")    #extension changed
+        self.commitHeadPath = os.path.join(self.gitdir, "commitHead.txt")
+        self.trackingAreaPath = os.path.join(self.gitdir, "trackingArea.json")
+        self.treeOfCommitsPath = os.path.join(
+            self.gitdir, "treeOfCommits.json")
+        self.indexFile = os.path.join(
+            self.gitdir, "index.json")  # extension changed
         self.workingDirectoryFiles = set()
         self.trackedFiles = set()
         self.modifiedFiles = set()
-        self.index = {}                 #make persistent
-        self.trackingArea = {}          
-        self.commitHead = None          #make persistent
-        self.treeOfCommits = {}         #make persistent
+        self.index = {}  # make persistent
+        self.trackingArea = {}
+        self.commitHead = None  # make persistent
+        self.treeOfCommits = {}  # make persistent
 
     def writeToTxt(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
@@ -51,11 +55,11 @@ class GitRepository(object):
         tracking_json = open('./.git/trackingArea.json', 'r')
         self.trackingArea = json.load(tracking_json)
 
-    def writeToIndexJson(self):             #check     
+    def writeToIndexJson(self):  # check
         index_json = open('./.git/trackingArea.json', 'w')
         json.dump(self.index, index_json)
 
-    def readFromIndexJson(self):            #check
+    def readFromIndexJson(self):  # check
         index_json = open('./.git/index.json', 'r')
         self.index = json.load(index_json)
 
@@ -159,6 +163,10 @@ class GitRepository(object):
             open(self.trackedFilePath, 'w').close()
         if not os.path.exists(self.trackingAreaPath):
             open(self.trackingAreaPath, 'w').close()
+        if not os.path.exists(self.commitHeadPath):
+            open(self.commitHeadPath, 'w').close()
+        if not os.path.exists(self.treeOfCommitsPath):
+            open(self.treeOfCommitsPath, 'w').close()
         if not os.path.exists(self.indexFile):
             open(self.indexFile, 'w').close()
         if not os.path.exists(self.gitRepoPath):
@@ -183,7 +191,7 @@ class GitRepository(object):
         self.trackedFiles.clear()
         self.modifiedFiles.clear()
 
-    def printDifference (self, file1, file2):
+    def printDifference(self, file1, file2):
         f1 = open(file1).readlines
         f2 = open(file2).readlines
 
@@ -252,7 +260,8 @@ def main():
         elif command[1] == 'diff':
             if len(command) == 2:
                 if Gitobj.commitHead != None and Gitobj.treeOfCommits[Gitobj.commitHead] != None:
-                    Gitobj.diff(Gitobj.commitHead, Gitobj.treeOfCommits[Gitobj.commitHead])
+                    Gitobj.diff(Gitobj.commitHead,
+                                Gitobj.treeOfCommits[Gitobj.commitHead])
             elif len(command) == 4:
                 Gitobj.diff(command[2], command[3])
     else:
