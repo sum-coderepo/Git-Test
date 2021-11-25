@@ -6,6 +6,7 @@ import shutil
 import pathlib
 import hashlib
 import difflib
+import datetime
 from typing import List
 from colorama import Fore
 
@@ -32,6 +33,7 @@ class GitRepository(object):
         self.commitHead = None
 
 # writing from data structures into the files in .git folder
+
     def writeToTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
         for file in self.trackedFiles:
@@ -68,7 +70,6 @@ class GitRepository(object):
 
 # reading from files into data structures from .git folder
 
-
     def readFromTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'r')
         for file in tracked_txt:
@@ -94,7 +95,6 @@ class GitRepository(object):
 
 # utility functions
 
-
     def shaOf(self, filename):
         sha256_hash = hashlib.sha256()
         with open(filename, "rb") as f:
@@ -104,7 +104,6 @@ class GitRepository(object):
 
 
 # git_INIT
-
 
     def ExecInit(self, cmd):
         if os.path.exists(self.gitdir):
@@ -138,7 +137,6 @@ class GitRepository(object):
 
 # git_ADD
 
-
     def addDir(self, path):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
@@ -158,13 +156,8 @@ class GitRepository(object):
             elif absolutePath.is_dir():
                 self.addDir(absolutePath)
 
-        print("Added files : \n")
-        for i in self.trackedFiles:
-            print(i)
-
 
 # git_STATUS
-
 
     def addFilesOfWorkingDirectory(self, path):
         absolutePath = pathlib.Path(os.path.abspath(path))
@@ -228,7 +221,6 @@ class GitRepository(object):
 
 # git_COMMIT
 
-
     def getCommitId(self):
         t = str(time.time())
         t_encoded = t.encode("utf-8")
@@ -246,6 +238,8 @@ class GitRepository(object):
             self.commitHead = None
 
         curr_commit_id = self.getCommitId()
+        # if no changes then why commit..?
+
         self.treeOfCommits[curr_commit_id] = self.commitHead  # Parent Commit
         self.index[curr_commit_id] = {}
 
@@ -255,9 +249,19 @@ class GitRepository(object):
                 # need to ponder
                 self.trackingArea[fileName] = self.index[curr_commit_id][fileName]
                 extension = self.getExtension(fileName)
-                dest = self.gitRepoPath + "\\" + \
+                dest = self.gitRepoPath + "/" + \
                     self.index[curr_commit_id][fileName] + extension
+                # print('destination path : ', dest)
                 shutil.copy(fileName, dest)
+
+        # updating logs
+        log_txt = open('./.git/log.txt', 'r+')
+        to_write = "Commit : " + str(self.commitHead) + "\n"
+        time = datetime.datetime.now()
+        to_write += "Date : " + str(time.strftime("%c")) + "\n\n"
+        prev_log = log_txt.read()
+        log_txt.seek(0, 0)
+        log_txt.write(to_write.rstrip('\r\n') + '\n' + prev_log)
 
         self.commitHead = curr_commit_id
         self.trackedFiles.clear()
@@ -265,7 +269,6 @@ class GitRepository(object):
 
 
 # git_DIFF
-
 
     def printDifference(self, file1, file2):
         f1 = open(file1).readlines
@@ -307,6 +310,15 @@ class GitRepository(object):
             print(f)
 
 
+# git_LOG
+
+    def log(self):
+        log_txt = open('./.git/log.txt', 'r')
+        for line in log_txt:
+            print(line)
+            #formatting is needed
+
+
 def main():
 
     Gitobj = GitRepository(os.getcwd())
@@ -331,13 +343,15 @@ def main():
             else:
                 argument = command[2:]
             Gitobj.gitAdd(argument)
-            print("\n<<-- Given files have been added to Staging Area -->>\n")
+            print("\n<<-- Given file(s) have been added to Staging Area -->>\n")
 
         elif command[1] == 'status':
             Gitobj.gitStatus()
+            print("\n<<-- Current Status -->>\n")
 
         elif command[1] == 'commit':
             Gitobj.ExecCommit()
+            print("\n<<-- Changes have been committed -->>\n")
 
         elif command[1] == 'diff':
             if len(command) == 2:
@@ -346,6 +360,10 @@ def main():
                                 Gitobj.treeOfCommits[Gitobj.commitHead])
             elif len(command) == 4:
                 Gitobj.diff(command[2], command[3])
+
+        elif command[1] == 'log':
+            Gitobj.log()
+            print("\n<<-- End of Logs -->>\n")
     else:
         sys.exit(0)
 
@@ -359,6 +377,7 @@ def main():
     # print("Tracking Area : \n", Gitobj.trackingArea)
     # print("Tree Of Commits : \n", Gitobj.treeOfCommits)
     # print("INDEX : \n",  Gitobj.index)
+    print("")
 
 
 if __name__ == '__main__':
