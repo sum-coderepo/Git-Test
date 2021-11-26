@@ -71,6 +71,7 @@ class GitRepository(object):
 # reading from files into data structures from .git folder
 
     def readFromTxt_tf(self):
+        self.trackedFiles.clear()
         tracked_txt = open('./.git/trackedFile.txt', 'r')
         for file in tracked_txt:
             path = pathlib.Path(os.path.abspath(file))
@@ -318,66 +319,179 @@ class GitRepository(object):
             print(line)
             #formatting is needed
 
+    def rollback1(self):
+        if self.treeOfCommits[self.commitHead] is not None:
+            for key, value in self.index[self.treeOfCommits[self.commitHead]].items():
+                if (self.trackingArea[key] != value):
+
+                    source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
+                    fileName = key.split("\\")[-1]
+                    print(key, " ", value)
+                    print("Following files moved from commit {0} Successfully.".format(fileName))
+                    shutil.copy(source, key)
+                    print(fileName)
+                    self.trackingArea[key] = value
+
+            print("Commit head shifted from {0} to {1}".format(self.commitHead, self.treeOfCommits[self.commitHead]))
+            self.commitHead = self.treeOfCommits[self.commitHead]
+
+        else:
+            print("Cannot roll back. Possible reason is you have only one commit")
+            sys.exit(0)
+
+
+
+
+    def checkout(self, commitID):
+
+        if self.index[commitID] is not None:
+            usr_input = ""
+            d1_keys = set(self.trackingArea.keys())
+            d2_keys = set(self.index[commitID].keys())
+            Files_Added = d1_keys - d2_keys # These files were added if the checkout is previous commit and will be removed.
+            Files_Removed = d2_keys - d1_keys # These files are not present in the current commit. If the checkout is a later commit and will be added.
+
+            shared_keys = d1_keys.intersection(d2_keys)
+            modified = { o : (self.trackingArea[o], self.index[commitID][o]) for o in shared_keys if self.trackingArea[o] != self.index[commitID][o]}
+            if len(Files_Added) >  0:
+                print("File Removal Alert!!")
+                print("Following files were added after the checkout and will be removed. Press 'Y' to continue and 'N' to not remove the files from the current working directory")
+
+                print(Files_Added)
+                usr_input = str(input())
+                if usr_input == "Y":
+                    for file in Files_Added:
+                        if os.path.exists(file):
+                                os.remove(file)
+                                del self.trackingArea[file]
+                else:
+                    print(" Files not removed from the current working directory")
+
+            if len(modified) > 0:
+                print("File Modification Alert!!")
+                print("Following files were modified after the checkout. Press 'Y' to continue and 'N' to ignore")
+                print(list(modified.keys()))
+
+                usr_input = str(input())
+                if usr_input == "Y":
+                    for key, value in self.index[commitID].items():
+                        if key in modified:
+                            source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
+                            fileName = key.split("\\")[-1]
+                            print(key, " ", value)
+                            print("Following files moved from commit {0} Successfully.".format(key))
+                            shutil.copy(source, key)
+                            print(key)
+                            self.trackingArea[key] = value
+                else:
+                    print("Above modified files are not moved to the working directory")
+
+            if len(Files_Removed) > 0:
+                print("File Addition Alert!!")
+                print("Following files are not part of the current commit and will be added after the checkout. Press 'Y' to continue")
+                print(list(Files_Removed))
+
+                usr_input = str(input())
+                if usr_input == "Y":
+                    for key, value in self.index[commitID].items():
+                        if key in Files_Removed:
+                            source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
+                            fileName = key.split("\\")[-1]
+                            print(key, " ", value)
+                            print("Following files moved from commit {0} Successfully.".format(key))
+                            shutil.copy(source, key)
+                            print(key)
+                            self.trackingArea[key] = value
+                else:
+                    print("Above Added files are not moved to the working directory")
+
+            self.commitHead = commitID
+
+        else:
+            print("Cannot roll back. Possible reason is you have only one commit")
+            sys.exit(0)
+
+    def rollback(self):
+        self.checkout(self.treeOfCommits[self.commitHead])
+
 
 def main():
 
     Gitobj = GitRepository(os.getcwd())
 
-    if os.path.exists(Gitobj.gitdir):
-        Gitobj.readFromTxt_ch()
-        Gitobj.readFromTxt_tf()
-        Gitobj.readFromJson_ta()
-        Gitobj.readFromJson_toc()
-        Gitobj.raedFromJson_index()
+    print("Enter Input:")
+    string = str(input())
 
-    command = sys.argv
+    while(True):
+        if len(string) > 0:
 
-    if len(command) > 0:
-        if command[1] == 'init':
-            Gitobj.ExecInit(command)
-            print("\n<<-- Git Directory has been initialised -->>\n")
+            if os.path.exists(Gitobj.gitdir):
+                Gitobj.readFromTxt_ch()
+                Gitobj.readFromTxt_tf()
+                Gitobj.readFromJson_ta()
+                Gitobj.readFromJson_toc()
+                Gitobj.raedFromJson_index()
 
-        elif command[1] == 'add':
-            if len(command) == 2:
-                argument = ["."]
+            command = string.split(' ') #sys.argv
+
+            if len(command) > 0:
+                if command[1] == 'init':
+                    Gitobj.ExecInit(command)
+                    print("\n<<-- Git Directory has been initialised -->>\n")
+
+                elif command[1] == 'add':
+                    if len(command) == 2:
+                        argument = ["."]
+                    else:
+                        argument = command[2:]
+                    Gitobj.gitAdd(argument)
+                    print("\n<<-- Given file(s) have been added to Staging Area -->>\n")
+
+                elif command[1] == 'status':
+                    Gitobj.gitStatus()
+                    print("\n<<-- Current Status -->>\n")
+
+                elif command[1] == 'commit':
+                    Gitobj.ExecCommit()
+                    print("\n<<-- Changes have been committed -->>\n")
+
+                elif command[1] == 'diff':
+                    if len(command) == 2:
+                        if Gitobj.commitHead != None and Gitobj.treeOfCommits[Gitobj.commitHead] != None:
+                            Gitobj.diff(Gitobj.commitHead,
+                                        Gitobj.treeOfCommits[Gitobj.commitHead])
+                    elif len(command) == 4:
+                        Gitobj.diff(command[2], command[3])
+
+                elif command[1] == 'log':
+                    Gitobj.log()
+                    print("\n<<-- End of Logs -->>\n")
+
+                elif command[1] == 'rollback':
+                    Gitobj.rollback()
+                    print("\n<<-- End of Logs -->>\n")
+
+                elif command[1] == 'checkout':
+                    Gitobj.checkout(command[2])
+                    print("\n<<-- End of Logs -->>\n")
             else:
-                argument = command[2:]
-            Gitobj.gitAdd(argument)
-            print("\n<<-- Given file(s) have been added to Staging Area -->>\n")
+                sys.exit(0)
 
-        elif command[1] == 'status':
-            Gitobj.gitStatus()
-            print("\n<<-- Current Status -->>\n")
+            Gitobj.writeToTxt_ch()
+            Gitobj.writeToTxt_tf()
+            Gitobj.writeToJson_ta()
+            Gitobj.writeToJson_toc()
+            Gitobj.writeToJson_index()
 
-        elif command[1] == 'commit':
-            Gitobj.ExecCommit()
-            print("\n<<-- Changes have been committed -->>\n")
+            string = str(input())
 
-        elif command[1] == 'diff':
-            if len(command) == 2:
-                if Gitobj.commitHead != None and Gitobj.treeOfCommits[Gitobj.commitHead] != None:
-                    Gitobj.diff(Gitobj.commitHead,
-                                Gitobj.treeOfCommits[Gitobj.commitHead])
-            elif len(command) == 4:
-                Gitobj.diff(command[2], command[3])
 
-        elif command[1] == 'log':
-            Gitobj.log()
-            print("\n<<-- End of Logs -->>\n")
-    else:
-        sys.exit(0)
-
-    Gitobj.writeToTxt_ch()
-    Gitobj.writeToTxt_tf()
-    Gitobj.writeToJson_ta()
-    Gitobj.writeToJson_toc()
-    Gitobj.writeToJson_index()
-    # print("\nCommit Head : ", Gitobj.commitHead)
-    # print("Tracked Files : \n", Gitobj.trackedFiles)
-    # print("Tracking Area : \n", Gitobj.trackingArea)
-    # print("Tree Of Commits : \n", Gitobj.treeOfCommits)
-    # print("INDEX : \n",  Gitobj.index)
-    print("")
+            # print("\nCommit Head : ", Gitobj.commitHead)
+            # print("Tracked Files : \n", Gitobj.trackedFiles)
+            # print("Tracking Area : \n", Gitobj.trackingArea)
+            # print("Tree Of Commits : \n", Gitobj.treeOfCommits)
+            # print("INDEX : \n",  Gitobj.index)
+            print("")
 
 
 if __name__ == '__main__':
