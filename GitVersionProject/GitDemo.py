@@ -31,8 +31,9 @@ class GitRepository(object):
         self.trackingArea = {}
         self.index = {}
         self.commitHead = None
+        self.RemoteRepo = "C:\\Users\\sumeet\\Desktop\\PGSSP_2019-22_IIIT\\Monsoon 2021\\Adv OS\\Final Project\\Remote\\"
 
-# writing from data structures into the files in .git folder
+    # writing from data structures into the files in .git folder
 
     def writeToTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
@@ -415,11 +416,36 @@ class GitRepository(object):
         self.checkout(self.treeOfCommits[self.commitHead])
 
 
+    def push(self):
+        root_workingDIr = os.getcwd().split('\\')[-1]
+        RemoteDir = os.path.join(self.RemoteRepo, root_workingDIr)
+        print(RemoteDir)
+        if os.path.exists(RemoteDir):
+            os.rmdir(RemoteDir)
+        os.mkdir(RemoteDir)
+        if self.commitHead is not None:
+            for key, value in self.index[self.commitHead].items():
+                relative = key.replace(os.getcwd(),'')
+                FilePath = RemoteDir + relative
+                directory = os.path.dirname(FilePath)
+                os.makedirs(directory, exist_ok=True)
+                source = self.gitRepoPath + "\\" + value + "." + key.split(".")[-1]
+                shutil.copy(source, FilePath)
+
+        git_folder = self.gitdir
+
+        from distutils.dir_util import copy_tree
+        copy_tree(git_folder, RemoteDir + "\\.git")
+
+
+
+
 def main():
 
     Gitobj = GitRepository(os.getcwd())
 
     print("Enter Input:")
+
     string = str(input())
 
     while(True):
@@ -474,6 +500,10 @@ def main():
                 elif command[1] == 'checkout':
                     Gitobj.checkout(command[2])
                     print("\n<<-- End of Logs -->>\n")
+
+                elif command[1] == 'push':
+                    Gitobj.push()
+                    print("\n<<-- Commit pushed to remote-->>\n")
             else:
                 sys.exit(0)
 
