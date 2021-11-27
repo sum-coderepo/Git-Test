@@ -31,9 +31,9 @@ class GitRepository(object):
         self.trackingArea = {}
         self.index = {}
         self.commitHead = None
-        self.RemoteRepo = "C:\\Users\\sumeet\\Desktop\\PGSSP_2019-22_IIIT\\Monsoon 2021\\Adv OS\\Final Project\\Remote\\"
+        self.RemoteRepo = "/Users/ashishchauhan/Downloads/Remote"
 
-    # writing from data structures into the files in .git folder
+# writing from data structures into the files in .git folder
 
     def writeToTxt_tf(self):
         tracked_txt = open('./.git/trackedFile.txt', 'w')
@@ -64,7 +64,7 @@ class GitRepository(object):
             temp[str(item)] = self.treeOfCommits[item]
         json.dump(temp, toc_json)
 
-    def writeToJson_index(self):  # check
+    def writeToJson_index(self):
         index_json = open('./.git/index.json', 'w')
         json.dump(self.index, index_json)
 
@@ -90,7 +90,7 @@ class GitRepository(object):
         toc_json = open('./.git/treeOfCommits.json', 'r')
         self.treeOfCommits = json.load(toc_json)
 
-    def raedFromJson_index(self):  # check
+    def raedFromJson_index(self):
         index_json = open('./.git/index.json', 'r')
         self.index = json.load(index_json)
 
@@ -104,6 +104,14 @@ class GitRepository(object):
                 sha256_hash.update(byte_block)
         return sha256_hash.hexdigest()
 
+    def delFilesOfWorkingDirectory(self, path):
+        absolutePath = pathlib.Path(os.path.abspath(path))
+        for p in pathlib.Path(absolutePath).iterdir():
+            if p.is_file():
+                os.remove(p)
+            elif p.is_dir():
+                self.delFilesOfWorkingDirectory(p)
+                os.rmdir(p)
 
 # git_INIT
 
@@ -139,6 +147,7 @@ class GitRepository(object):
 
 # git_ADD
 
+
     def addDir(self, path):
         for p in pathlib.Path(path).iterdir():
             if p.is_file() and p not in self.trackingArea:
@@ -160,6 +169,7 @@ class GitRepository(object):
 
 
 # git_STATUS
+
 
     def addFilesOfWorkingDirectory(self, path):
         absolutePath = pathlib.Path(os.path.abspath(path))
@@ -223,6 +233,7 @@ class GitRepository(object):
 
 # git_COMMIT
 
+
     def getCommitId(self):
         t = str(time.time())
         t_encoded = t.encode("utf-8")
@@ -235,7 +246,7 @@ class GitRepository(object):
         extension = str(fileName)[pos:]
         return extension
 
-    def ExecCommit(self):
+    def ExecCommit(self, msg):
         if len(self.index) == 0:
             self.commitHead = None
 
@@ -258,7 +269,11 @@ class GitRepository(object):
 
         # updating logs
         log_txt = open('./.git/log.txt', 'r+')
-        to_write = "Commit : " + str(self.commitHead) + "\n"
+        commit_id = str(self.commitHead)
+        if commit_id == "None":
+            commit_id = "Initial Commit"
+        to_write = "Commit ID : " + commit_id + "\n"
+        to_write += "Commit Message : " + str(msg) + "\n"
         time = datetime.datetime.now()
         to_write += "Date : " + str(time.strftime("%c")) + "\n\n"
         prev_log = log_txt.read()
@@ -272,12 +287,57 @@ class GitRepository(object):
 
 # git_DIFF
 
-    def printDifference(self, file1, file2):
-        f1 = open(file1).readlines
-        f2 = open(file2).readlines
+    # def printDifference(self, file1, file2):
+    #     f1 = open(file1).readlines
+    #     f2 = open(file2).readlines
 
-        delta = difflib.unified_diff(f1, f2)
-        sys.stdout.writelines(delta)
+    #     delta = difflib.unified_diff(f1, f2)
+    #     sys.stdout.writelines(str(delta))
+
+    def printDifference(self, x1, x2):
+        # Open File in Read Mode
+        file_1 = open(x1, 'r')
+        file_2 = open(x2, 'r')
+
+        file_1_line = file_1.readline()
+        file_2_line = file_2.readline()
+
+        # Use as a Counter
+        line_no = 1
+
+        print("Difference Lines in Both Files")
+        while file_1_line != '' or file_2_line != '':
+
+            # Removing whitespaces
+            file_1_line = file_1_line.rstrip()
+            file_2_line = file_2_line.rstrip()
+
+            # Compare the lines from both file
+            if file_1_line != file_2_line:
+
+                # otherwise output the line on file1 and use @ sign
+                if file_1_line == '':
+                    print("@", "Line-%d" % line_no, file_1_line)
+                else:
+                    print("@-", "Line-%d" % line_no, file_1_line)
+
+                # otherwise output the line on file2 and use # sign
+                if file_2_line == '':
+                    print("#", "Line-%d" % line_no, file_2_line)
+                else:
+                    print("#+", "Line-%d" % line_no, file_2_line)
+
+                # Print a empty line
+                print()
+
+        # Read the next line from the file
+            file_1_line = file_1.readline()
+            file_2_line = file_2.readline()
+
+            line_no += 1
+
+        file_1.close()
+        file_2.close()
 
     def diff(self, c1, c2):
         c1_files = self.index[c1]
@@ -286,11 +346,11 @@ class GitRepository(object):
         addedFiles = set()
         deletedFiles = set()
 
-        print("Modified files")
+        print("Modified files : \n ")
         for file in c1_files:
             if file in c2_files and c2_files[file] != c1_files[file]:
                 ex = self.getExtension(file)
-                print(file)
+                # print(file)
                 f1 = './.git/Repository/'+c1_files[file]+ex
                 f2 = './.git/Repository/'+c2_files[file]+ex
                 self.printDifference(f1, f2)
@@ -298,7 +358,7 @@ class GitRepository(object):
                 addedFiles.add(file)
 
         if len(addedFiles) != 0:
-            print("Added Files")
+            print("Added Files : \n")
         for f in addedFiles:
             print(f)
 
@@ -307,41 +367,52 @@ class GitRepository(object):
                 deletedFiles.add(file)
 
         if len(deletedFiles) != 0:
-            print("Deleted Files")
+            print("Deleted Files : \n")
         for f in deletedFiles:
             print(f)
 
 
 # git_LOG
 
+
     def log(self):
         log_txt = open('./.git/log.txt', 'r')
+        counter = 0
         for line in log_txt:
-            print(line)
-            #formatting is needed
+            if(counter % 3 == 0):
+                print("")
+                print(Fore.YELLOW + line + Fore.WHITE, end="")
+            else:
+                print(line, end="")
+            counter += 1
+            # formatting is needed
+
+
+# git_CHECKOUT
+
 
     def rollback1(self):
         if self.treeOfCommits[self.commitHead] is not None:
             for key, value in self.index[self.treeOfCommits[self.commitHead]].items():
                 if (self.trackingArea[key] != value):
 
-                    source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
+                    source = self.gitRepoPath + "//" + \
+                        value + "." + key.split(".")[-1]
                     fileName = key.split("\\")[-1]
                     print(key, " ", value)
-                    print("Following files moved from commit {0} Successfully.".format(fileName))
+                    print(
+                        "Following files moved from commit {0} Successfully.".format(fileName))
                     shutil.copy(source, key)
                     print(fileName)
                     self.trackingArea[key] = value
 
-            print("Commit head shifted from {0} to {1}".format(self.commitHead, self.treeOfCommits[self.commitHead]))
+            print("Commit head shifted from {0} to {1}".format(
+                self.commitHead, self.treeOfCommits[self.commitHead]))
             self.commitHead = self.treeOfCommits[self.commitHead]
 
         else:
             print("Cannot roll back. Possible reason is you have only one commit")
             sys.exit(0)
-
-
-
 
     def checkout(self, commitID):
 
@@ -349,38 +420,44 @@ class GitRepository(object):
             usr_input = ""
             d1_keys = set(self.trackingArea.keys())
             d2_keys = set(self.index[commitID].keys())
-            Files_Added = d1_keys - d2_keys # These files were added if the checkout is previous commit and will be removed.
-            Files_Removed = d2_keys - d1_keys # These files are not present in the current commit. If the checkout is a later commit and will be added.
+            # These files were added if the checkout is previous commit and will be removed.
+            Files_Added = d1_keys - d2_keys
+            # These files are not present in the current commit. If the checkout is a later commit and will be added.
+            Files_Removed = d2_keys - d1_keys
 
             shared_keys = d1_keys.intersection(d2_keys)
-            modified = { o : (self.trackingArea[o], self.index[commitID][o]) for o in shared_keys if self.trackingArea[o] != self.index[commitID][o]}
-            if len(Files_Added) >  0:
+            modified = {o: (self.trackingArea[o], self.index[commitID][o])
+                        for o in shared_keys if self.trackingArea[o] != self.index[commitID][o]}
+            if len(Files_Added) > 0:
                 print("File Removal Alert!!")
                 print("Following files were added after the checkout and will be removed. Press 'Y' to continue and 'N' to not remove the files from the current working directory")
-
                 print(Files_Added)
+
                 usr_input = str(input())
                 if usr_input == "Y":
                     for file in Files_Added:
                         if os.path.exists(file):
-                                os.remove(file)
-                                del self.trackingArea[file]
+                            os.remove(file)
+                            del self.trackingArea[file]
                 else:
                     print(" Files not removed from the current working directory")
 
             if len(modified) > 0:
                 print("File Modification Alert!!")
-                print("Following files were modified after the checkout. Press 'Y' to continue and 'N' to ignore")
+                print(
+                    "Following files were modified after the checkout. Press 'Y' to continue and 'N' to ignore")
                 print(list(modified.keys()))
 
                 usr_input = str(input())
                 if usr_input == "Y":
                     for key, value in self.index[commitID].items():
                         if key in modified:
-                            source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
+                            source = self.gitRepoPath + "//" + \
+                                value + "." + key.split(".")[-1]
                             fileName = key.split("\\")[-1]
                             print(key, " ", value)
-                            print("Following files moved from commit {0} Successfully.".format(key))
+                            print(
+                                "Following files moved from commit {0} Successfully.".format(key))
                             shutil.copy(source, key)
                             print(key)
                             self.trackingArea[key] = value
@@ -389,17 +466,20 @@ class GitRepository(object):
 
             if len(Files_Removed) > 0:
                 print("File Addition Alert!!")
-                print("Following files are not part of the current commit and will be added after the checkout. Press 'Y' to continue")
+                print(
+                    "Following files are not part of the current commit and will be added after the checkout. Press 'Y' to continue")
                 print(list(Files_Removed))
 
                 usr_input = str(input())
                 if usr_input == "Y":
                     for key, value in self.index[commitID].items():
                         if key in Files_Removed:
-                            source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
+                            source = self.gitRepoPath + "//" + \
+                                value + "." + key.split(".")[-1]
                             fileName = key.split("\\")[-1]
                             print(key, " ", value)
-                            print("Following files moved from commit {0} Successfully.".format(key))
+                            print(
+                                "Following files moved from commit {0} Successfully.".format(key))
                             shutil.copy(source, key)
                             print(key)
                             self.trackingArea[key] = value
@@ -412,32 +492,43 @@ class GitRepository(object):
             print("Cannot roll back. Possible reason is you have only one commit")
             sys.exit(0)
 
+
+# git_ROLLBACK
+
+
     def rollback(self):
         self.checkout(self.treeOfCommits[self.commitHead])
 
+# git_PUSH
 
     def push(self):
-        root_workingDIr = os.getcwd().split('\\')[-1]
-        RemoteDir = os.path.join(self.RemoteRepo, root_workingDIr)
-        print(RemoteDir)
+        root_workingDir = os.getcwd().split('/')[-1]
+        print(root_workingDir)
+        RemoteDir = os.path.join(self.RemoteRepo, root_workingDir)
+        print("Remote Path->", RemoteDir)
         if os.path.exists(RemoteDir):
+            # delete existing dir recursively
+            self.delFilesOfWorkingDirectory(RemoteDir)
             os.rmdir(RemoteDir)
         os.mkdir(RemoteDir)
         if self.commitHead is not None:
             for key, value in self.index[self.commitHead].items():
-                relative = key.replace(os.getcwd(),'')
+                relative = key.replace(os.getcwd(), '')
                 FilePath = RemoteDir + relative
                 directory = os.path.dirname(FilePath)
                 os.makedirs(directory, exist_ok=True)
-                source = self.gitRepoPath + "\\" + value + "." + key.split(".")[-1]
+                source = self.gitRepoPath + "/" + \
+                    value + "." + key.split(".")[-1]
+                print("source -> ", source)
                 shutil.copy(source, FilePath)
 
         git_folder = self.gitdir
 
         from distutils.dir_util import copy_tree
-        copy_tree(git_folder, RemoteDir + "\\.git")
+        # copy_tree(git_folder, RemoteDir + "/.git")
 
 
+# git_PULL
 
 
 def main():
@@ -458,7 +549,7 @@ def main():
                 Gitobj.readFromJson_toc()
                 Gitobj.raedFromJson_index()
 
-            command = string.split(' ') #sys.argv
+            command = string.split(' ')  # sys.argv
 
             if len(command) > 0:
                 if command[1] == 'init':
@@ -478,7 +569,8 @@ def main():
                     print("\n<<-- Current Status -->>\n")
 
                 elif command[1] == 'commit':
-                    Gitobj.ExecCommit()
+                    message = input("Type some commit message : ")
+                    Gitobj.ExecCommit(message)
                     print("\n<<-- Changes have been committed -->>\n")
 
                 elif command[1] == 'diff':
@@ -514,7 +606,6 @@ def main():
             Gitobj.writeToJson_index()
 
             string = str(input())
-
 
             # print("\nCommit Head : ", Gitobj.commitHead)
             # print("Tracked Files : \n", Gitobj.trackedFiles)
