@@ -571,7 +571,7 @@ class GitRepository(object):
             usr_input = str(input())
             if usr_input == 'Y':
                 self.pull()
-                self.push1()
+                self.push()
             else:
                 sys.exit(0)
         else:
@@ -669,118 +669,126 @@ class GitRepository(object):
 
             index_json_ow = open(RemoteDir + '/.git/index.json', 'w+')
             json.dump(Remoteindex, index_json_ow)
+            index_json_ow.close()
+
             Remotetoc_json_ow = open(RemoteDir + '/.git/treeOfCommits.json', 'w+')
             json.dump(RemotetreeOfCommits, Remotetoc_json_ow)
+            Remotetoc_json_ow.close()
+
+            trackingArea_json_ow = open(RemoteDir + '/.git/trackingArea.json', 'w+')
+            json.dump(Remoteindex[NewRemotecommitHead], trackingArea_json_ow)
+            trackingArea_json_ow.close()
 
 
 
 
 
 
-def pull(self):
+    def pull(self):
 
 
-    root_workingDir = os.getcwd().split('\\')[-1]
-    print(root_workingDir)
-    RemoteDir = os.path.join(self.RemoteRepo, root_workingDir)
+        root_workingDir = os.getcwd().split('\\')[-1]
+        print(root_workingDir)
+        RemoteDir = os.path.join(self.RemoteRepo, root_workingDir)
 
-    RemotecommitHead = open(RemoteDir + '/.git/commitHead.txt', 'r').read()
+        RemotecommitHead = open(RemoteDir + '/.git/commitHead.txt', 'r').read()
 
-    Remotetoc_json = open(RemoteDir + '/.git/treeOfCommits.json', 'r')
-    RemotetreeOfCommits = json.load(Remotetoc_json)
+        Remotetoc_json = open(RemoteDir + '/.git/treeOfCommits.json', 'r')
+        RemotetreeOfCommits = json.load(Remotetoc_json)
 
-    index_json = open(RemoteDir + '/.git/index.json', 'r')
-    Remoteindex = json.load(index_json)
-
-
-    d1_keys = set(self.trackingArea.keys())
-    d2_keys = set(Remoteindex[RemotecommitHead].keys() )
-
-    try:
-        file_names = os.listdir(RemoteDir + '/.git/Repository')
-        for file in file_names:
-            shutil.copy2(os.path.join(RemoteDir + '/.git/Repository',file), self.gitRepoPath)
-    except Exception as e:
-        print("An exception occurred: ", e)
+        index_json = open(RemoteDir + '/.git/index.json', 'r')
+        Remoteindex = json.load(index_json)
 
 
-    print(Remoteindex.keys() - self.index.keys() , " New commits are identified")
+        d1_keys = set(self.trackingArea.keys())
+        d2_keys = set(Remoteindex[RemotecommitHead].keys() )
 
-    Files_Added = d1_keys - d2_keys #Files Added in the local repo but not present in remote
-    Files_Removed = d2_keys - d1_keys
-    shared_keys = d1_keys.intersection(d2_keys)
-
-    modified = {o: (self.trackingArea[o], Remoteindex[RemotecommitHead][o])
-                for o in shared_keys if self.trackingArea[o] != Remoteindex[RemotecommitHead][o]}
-
-    if len(Files_Added) > 0:
-        print("File Removal Alert!!\n")
-        print(
-            "Following file(s) were Removed from the Remote repo after your last push and will be removed from your local working directory.")
-        print(
-            "Press 'Y' to continue and 'N' to not remove the files from the current working directory")
-        print(Files_Added)
-        usr_input = str(input())
-        if usr_input == "Y":
-            for file in Files_Added:
-                if os.path.exists(file):
-                    os.remove(file)
-                    del self.trackingArea[file]
-        else:
-            print(" Files not removed from the current working directory")
-
-    if len(modified) > 0:
-        print("File Modification Alert!!")
-        print(
-            "Following files were modified after the checkout. Press 'Y' to continue and 'N' to ignore")
-        print(list(modified.keys()))
-        usr_input = str(input())
-        if usr_input == "Y":
-            for key, value in Remoteindex[RemotecommitHead].items():
-                if key in modified:
-                    source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
-                    fileName = key.split("\\")[-1]
-                    print(key, " ", value)
-                    print(
-                        "Following files moved from commit {0} Successfully.".format(key))
-                    shutil.copy(source, key)
-                    print(key)
-                    self.trackingArea[key] = value
-        else:
-            print("Above modified files are not moved to the working directory")
-
-    if len(Files_Removed) > 0:
-        print("File Addition Alert!!")
-        print(
-            "Following files are not part of the current Repository and will be added after the pull. Press 'Y' to continue")
-        print(list(Files_Removed))
-
-        usr_input = str(input())
-        if usr_input == "Y":
-            for key, value in Remoteindex[RemotecommitHead].items():
-                if key in Files_Removed:
-                    source = self.gitRepoPath + "//" +  value + "." + key.split(".")[-1]
-                    fileName = key.split("\\")[-1]
-                    print(key, " ", value)
-                    print(
-                        "Following files moved from commit {0} Successfully.".format(key))
-                    os.makedirs(os.path.dirname(key), exist_ok=True)
-                    shutil.copy(source, key)
-                    print(
-                        "Following files moved from commit {0} Successfully.".format(key))
-                    print(key)
-                    self.trackingArea[key] = value
-        else:
-            print("Above Added files are not moved to the working directory")
+        try:
+            file_names = os.listdir(RemoteDir + '/.git/Repository')
+            for file in file_names:
+                shutil.copy2(os.path.join(RemoteDir + '/.git/Repository',file), self.gitRepoPath)
+        except Exception as e:
+            print("An exception occurred: ", e)
 
 
-    newCommits = Remoteindex.keys() - self.index.keys()  #New commits
-    if len(newCommits) > 0:
-        for key in newCommits:
-            self.index[key] = Remoteindex[key]
-            self.treeOfCommits[key] = RemotetreeOfCommits[key]
+        print(Remoteindex.keys() - self.index.keys() , " New commits are identified")
 
-    self.commitHead = RemotecommitHead
+        Files_Added = d1_keys - d2_keys #Files Added in the local repo but not present in remote
+        Files_Removed = d2_keys - d1_keys
+        shared_keys = d1_keys.intersection(d2_keys)
+
+        modified = {o: (self.trackingArea[o], Remoteindex[RemotecommitHead][o])
+                    for o in shared_keys if self.trackingArea[o] != Remoteindex[RemotecommitHead][o]}
+
+        if len(Files_Added) > 0:
+            print("File Removal Alert!!\n")
+            print(
+                "Following file(s) were Removed from the Remote repo after your last push and will be removed from your local working directory.")
+            print(
+                "Press 'Y' to continue and 'N' to not remove the files from the current working directory")
+            print(Files_Added)
+            usr_input = str(input())
+            if usr_input == "Y":
+                for file in Files_Added:
+                    if os.path.exists(file):
+                        os.remove(file)
+                        del self.trackingArea[file]
+            else:
+                print(" Files not removed from the current working directory")
+
+        if len(modified) > 0:
+            print("File Modification Alert!!")
+            print(
+                "Following files were modified after the checkout. Press 'Y' to continue and 'N' to ignore")
+            print(list(modified.keys()))
+            usr_input = str(input())
+            if usr_input == "Y":
+                for key, value in Remoteindex[RemotecommitHead].items():
+                    if key in modified:
+                        source = self.gitRepoPath + "//" + value + "." + key.split(".")[-1]
+                        fileName = key.split("\\")[-1]
+                        print(key, " ", value)
+                        print(
+                            "Following files moved from commit {0} Successfully.".format(key))
+                        shutil.copy(source, key)
+                        print(key)
+                        self.trackingArea[key] = value
+            else:
+                print("Above modified files are not moved to the working directory")
+
+        if len(Files_Removed) > 0:
+            print("File Addition Alert!!")
+            print(
+                "Following files are not part of the current Repository and will be added after the pull. Press 'Y' to continue")
+            print(list(Files_Removed))
+
+            usr_input = str(input())
+            if usr_input == "Y":
+                for key, value in Remoteindex[RemotecommitHead].items():
+                    if key in Files_Removed:
+                        source = self.gitRepoPath + "//" +  value + "." + key.split(".")[-1]
+                        fileName = key.split("\\")[-1]
+                        print(key, " ", value)
+                        print(
+                            "Following files moved from commit {0} Successfully.".format(key))
+                        if str(os.path.dirname(key))  != "":
+                            os.makedirs(os.path.dirname(key), exist_ok=True)
+                        shutil.copy(source, key)
+                        print(
+                            "Following files moved from commit {0} Successfully.".format(key))
+                        print(key)
+                        self.trackingArea[key] = value
+            else:
+                print("Above Added files are not moved to the working directory")
+
+
+        newCommits = Remoteindex.keys() - self.index.keys()  #New commits
+        if len(newCommits) > 0:
+            for key in newCommits:
+                self.index[key] = Remoteindex[key]
+                self.treeOfCommits[key] = RemotetreeOfCommits[key]
+
+        self.commitHead = RemotecommitHead
 
 
 
