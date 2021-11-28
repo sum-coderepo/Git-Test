@@ -167,6 +167,9 @@ class GitRepository(object):
                 self.trackingArea[relative] = self.shaOf(element)
                 self.trackedFiles.add(relative)
             elif relative.is_dir():
+                for k in list(self.trackingArea.keys()): # To Handle if file is deleted
+                        if k.startswith(element): # To Handle if file is deleted
+                            del self.trackingArea[k] # To Handle if file is deleted
                 self.addDir(relative)
 
 
